@@ -115,7 +115,7 @@ export default function KanbanBoard({
 
   return (
     <div className="w-full">
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="flex justify-end gap-3 overflow-x-auto pb-2">
         {board.columns.map((col) => (
           <div
             key={col.id}
@@ -169,13 +169,22 @@ export default function KanbanBoard({
                       : "cursor-grab"
                   }`}
                 >
-                  <input
+                  <textarea
                     value={card.content}
-                    onChange={(e) =>
-                      updateCard(col.id, card.id, e.target.value)
-                    }
+                    onChange={(e) => {
+                      updateCard(col.id, card.id, e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = `${e.target.scrollHeight}px`;
+                    }}
+                    ref={(el) => {
+                      if (el) {
+                        el.style.height = "auto";
+                        el.style.height = `${el.scrollHeight}px`;
+                      }
+                    }}
+                    rows={1}
                     placeholder="Untitled card"
-                    className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-soft/60"
+                    className="w-full resize-none overflow-hidden bg-transparent text-sm text-ink outline-none placeholder:text-ink-soft/60"
                   />
                   <button
                     onClick={() => removeCard(col.id, card.id)}

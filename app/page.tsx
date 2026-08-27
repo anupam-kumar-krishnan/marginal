@@ -410,7 +410,10 @@ export default function Home() {
           <span>Marginal - A quiet place to write.</span>
         </div>
         <span className="flex items-center gap-1.5">
-          <ExternalLink size={14} /> Built with Next.js
+          Built with ♥ by{" "}
+          <a href="https://anupam-k-krishnan.vercel.app/">
+            <span className="text-[#7BAB8E]">Anupam Kumar Krishnan</span>
+          </a>
         </span>
       </footer>
     </div>
