@@ -40,7 +40,7 @@ export default function NoteEditor({ page }: { page: Page }) {
 
   const commit = useCallback(
     (next: BlockT[]) => setBlocks(page.id, next),
-    [page.id, setBlocks]
+    [page.id, setBlocks],
   );
 
   const handleInput = (id: string, text: string) => {
@@ -54,7 +54,7 @@ export default function NoteEditor({ page }: { page: Page }) {
       setSlash((prev) =>
         prev && prev.blockId === id
           ? { ...prev, query: text.slice(1), selectedIndex: 0 }
-          : { blockId: id, query: text.slice(1), selectedIndex: 0 }
+          : { blockId: id, query: text.slice(1), selectedIndex: 0 },
       );
     } else {
       setSlash((prev) => (prev && prev.blockId === id ? null : prev));
@@ -77,7 +77,7 @@ export default function NoteEditor({ page }: { page: Page }) {
       setSlash(null);
       focusBlock(id, "start");
     },
-    [blocks, commit, focusBlock]
+    [blocks, commit, focusBlock],
   );
 
   const handleEnter = (id: string) => {
@@ -139,13 +139,22 @@ export default function NoteEditor({ page }: { page: Page }) {
     }
   };
 
-  const handleKeyDown = (id: string, e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (
+    id: string,
+    e: React.KeyboardEvent<HTMLDivElement>,
+  ) => {
     if (slash && slash.blockId === id) {
       const filtered = getFilteredCommands(slash.query);
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setSlash((s) =>
-          s ? { ...s, selectedIndex: (s.selectedIndex + 1) % Math.max(filtered.length, 1) } : s
+          s
+            ? {
+                ...s,
+                selectedIndex:
+                  (s.selectedIndex + 1) % Math.max(filtered.length, 1),
+              }
+            : s,
         );
         return;
       }
@@ -159,7 +168,7 @@ export default function NoteEditor({ page }: { page: Page }) {
                   (s.selectedIndex - 1 + Math.max(filtered.length, 1)) %
                   Math.max(filtered.length, 1),
               }
-            : s
+            : s,
         );
         return;
       }
@@ -174,7 +183,10 @@ export default function NoteEditor({ page }: { page: Page }) {
         setSlash(null);
         return;
       }
-      if (e.key === "Backspace" && (e.currentTarget.innerText === "/" || e.currentTarget.innerText === "")) {
+      if (
+        e.key === "Backspace" &&
+        (e.currentTarget.innerText === "/" || e.currentTarget.innerText === "")
+      ) {
         setSlash(null);
       }
     }
@@ -238,6 +250,14 @@ export default function NoteEditor({ page }: { page: Page }) {
     commit(next);
   };
 
+  const handleKanbanChange = (id: string, kanban: BlockT["kanban"]) => {
+    const idx = blocks.findIndex((b) => b.id === id);
+    if (idx === -1) return;
+    const next = blocks.slice();
+    next[idx] = { ...next[idx], kanban };
+    commit(next);
+  };
+
   const appendTrailingBlock = () => {
     const last = blocks[blocks.length - 1];
     if (last && last.type === "paragraph" && last.content === "") {
@@ -266,7 +286,12 @@ export default function NoteEditor({ page }: { page: Page }) {
   return (
     <div className="relative">
       {blocks.map((block, index) => (
-        <div key={block.id} className="group relative py-[3px]">
+        <div
+          key={block.id}
+          className={`group relative py-0.75 ${
+            block.type === "kanban" ? "w-full" : "mx-auto max-w-3xl"
+          }`}
+        >
           <Block
             block={block}
             index={index}
@@ -278,13 +303,16 @@ export default function NoteEditor({ page }: { page: Page }) {
             onImageUpload={handleImageUpload}
             onRemoveImage={handleRemoveImage}
             onFocusBlock={() => {}}
+            onKanbanChange={handleKanbanChange}
           />
           {slash && slash.blockId === block.id && (
             <SlashMenu
               query={slash.query}
               selectedIndex={slash.selectedIndex}
               onSelect={(type) => selectCommand(block.id, type)}
-              onHover={(i) => setSlash((s) => (s ? { ...s, selectedIndex: i } : s))}
+              onHover={(i) =>
+                setSlash((s) => (s ? { ...s, selectedIndex: i } : s))
+              }
             />
           )}
         </div>

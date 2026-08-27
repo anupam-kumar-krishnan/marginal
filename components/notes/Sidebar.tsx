@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useNotesStore } from "@/store/useNotesStore";
 import ThemeToggle from "./ThemeToggle";
+import FontToggle from "./FontToggle";
 import TemplatePicker from "./TemplatePicker";
 
 export default function Sidebar({
@@ -147,7 +148,10 @@ export default function Sidebar({
 
       <div className="flex items-center justify-between border-t border-line px-4 py-3">
         <span className="text-xs text-ink-soft">Saved on this device</span>
-        <ThemeToggle compact />
+        <div className="flex items-center gap-1.5">
+          <FontToggle />
+          <ThemeToggle compact />
+        </div>
       </div>
 
       <TemplatePicker

@@ -403,7 +403,12 @@ export default function Home() {
       </section>
 
       <footer className="mx-auto flex max-w-6xl items-center justify-between border-t border-line px-6 py-8 text-xs text-ink-soft">
-        <span>Marginal - A quiet place to write.</span>
+        <div className="flex items-center gap-3">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-ink font-display text-sm font-medium text-paper">
+            M
+          </span>
+          <span>Marginal - A quiet place to write.</span>
+        </div>
         <span className="flex items-center gap-1.5">
           <ExternalLink size={14} /> Built with Next.js
         </span>
