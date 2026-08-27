@@ -1,17 +1,3 @@
-export type BlockType =
-  | "paragraph"
-  | "heading1"
-  | "heading2"
-  | "heading3"
-  | "bulleted"
-  | "numbered"
-  | "todo"
-  | "quote"
-  | "code"
-  | "callout"
-  | "divider"
-  | "image";
-
 export interface Block {
   id: string;
   type: BlockType;
@@ -29,4 +15,44 @@ export interface Page {
   blocks: Block[];
   createdAt: number;
   updatedAt: number;
+}
+
+export type BlockType =
+  | "paragraph"
+  | "heading1"
+  | "heading2"
+  | "heading3"
+  | "bulleted"
+  | "numbered"
+  | "todo"
+  | "quote"
+  | "code"
+  | "callout"
+  | "divider"
+  | "image"
+  | "kanban";
+
+export interface KanbanCard {
+  id: string;
+  content: string;
+}
+
+export interface KanbanColumn {
+  id: string;
+  title: string;
+  color: string;
+  cards: KanbanCard[];
+}
+
+export interface KanbanData {
+  columns: KanbanColumn[];
+}
+
+export interface Block {
+  id: string;
+  type: BlockType;
+  content: string;
+  checked?: boolean;
+  imageSrc?: string;
+  kanban?: KanbanData;
 }

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { ImagePlus, X } from "lucide-react";
-import type { Block as BlockT } from "@/lib/types";
+import type { Block as BlockT, KanbanData } from "@/lib/types";
+import KanbanBoard from "@/components/notes/KanbanBoard";
 
 interface BlockProps {
   block: BlockT;
@@ -15,6 +16,7 @@ interface BlockProps {
   onImageUpload: (id: string, file: File) => void;
   onRemoveImage: (id: string) => void;
   onFocusBlock: (id: string) => void;
+  onKanbanChange: (id: string, data: KanbanData) => void;
 }
 
 const placeholderFor = (type: BlockT["type"], index: number) => {
@@ -100,11 +102,21 @@ export default function Block({
   onImageUpload,
   onRemoveImage,
   onFocusBlock,
+  onKanbanChange,
 }: BlockProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (block.type === "divider") {
     return <hr className="my-4 border-line" />;
+  }
+
+  if (block.type === "kanban") {
+    return (
+      <KanbanBoard
+        data={block.kanban ?? { columns: [] }}
+        onChange={(data) => onKanbanChange(block.id, data)}
+      />
+    );
   }
 
   if (block.type === "image") {

@@ -40,12 +40,15 @@ export default function NotesPage() {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-paper text-ink">
-      <Sidebar collapsed={collapsed} onToggleCollapsed={() => setCollapsed((v) => !v)} />
+      <Sidebar
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((v) => !v)}
+      />
       <main className="flex-1 overflow-y-auto">
         {activePage ? (
           <div className="pb-32">
             <CoverHeader page={activePage} />
-            <div className="mx-auto max-w-3xl px-6 pt-8 md:px-10">
+            <div className="px-6 pt-8 md:px-10">
               <NoteEditor key={activePage.id} page={activePage} />
             </div>
           </div>

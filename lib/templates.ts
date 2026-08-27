@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import type { Block } from "./types";
+import type { Block, KanbanColumn } from "./types";
 
 export interface Template {
   id: string;
@@ -11,11 +11,26 @@ export interface Template {
   blocks: () => Block[];
 }
 
-const b = (type: Block["type"], content = "", extra: Partial<Block> = {}): Block => ({
+const b = (
+  type: Block["type"],
+  content = "",
+  extra: Partial<Block> = {},
+): Block => ({
   id: nanoid(8),
   type,
   content,
   ...extra,
+});
+
+const kanbanColumn = (
+  title: string,
+  color: string,
+  cards: string[] = [],
+): KanbanColumn => ({
+  id: nanoid(8),
+  title,
+  color,
+  cards: cards.map((content) => ({ id: nanoid(8), content })),
 });
 
 export const templates: Template[] = [
@@ -65,23 +80,35 @@ export const templates: Template[] = [
     ],
   },
   {
-    id: "project-plan",
-    name: "Project plan",
-    description: "Scope, milestones, and open questions.",
-    icon: "\u{1F9ED}",
-    accent: "#4C7A9E",
-    title: "Project plan",
+    id: "kanban",
+    name: "Kanban board",
+    description: "Track work across to-do, in progress, and done.",
+    icon: "\u{1F4CB}",
+    accent: "#8A5A9E",
+    title: "Kanban board",
     blocks: () => [
-      b("heading1", "Overview"),
-      b("paragraph", ""),
-      b("heading2", "Goals"),
-      b("bulleted", ""),
-      b("heading2", "Milestones"),
-      b("numbered", ""),
-      b("heading2", "Open questions"),
-      b("todo", ""),
-      b("divider", ""),
-      b("quote", "Ship the smallest useful version first."),
+      b("kanban", "", {
+        kanban: {
+          columns: [
+            kanbanColumn("To-do", "#A78BFA", [
+              "Review performance metrics",
+              "Respond to beta test questions",
+            ]),
+            kanbanColumn("In progress", "#F0B84E", [
+              "Sales demo sync",
+              "Launch demo video",
+            ]),
+            kanbanColumn("In review", "#4C9AE8", [
+              "Weekly sales status report",
+              "Marketing campaign designs",
+            ]),
+            kanbanColumn("Complete", "#4CAF7D", [
+              "Project onboarding",
+              "Finalize launch timeline",
+            ]),
+          ],
+        },
+      }),
     ],
   },
   {
