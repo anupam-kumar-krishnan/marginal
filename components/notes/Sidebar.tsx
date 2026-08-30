@@ -11,11 +11,47 @@ import {
   PanelLeftOpen,
   NotebookPen,
   ArrowLeft,
+  MoveHorizontal,
 } from "lucide-react";
 import { useNotesStore } from "@/store/useNotesStore";
 import ThemeToggle from "./ThemeToggle";
 import FontToggle from "./FontToggle";
 import TemplatePicker from "./TemplatePicker";
+
+// A small Notion-style pill switch: icon + label on the left, a
+// rounded toggle knob on the right.
+function FullWidthToggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm text-ink-soft transition hover:bg-paper hover:text-ink"
+      role="switch"
+      aria-checked={checked}
+    >
+      <span className="flex items-center gap-2">
+        <MoveHorizontal size={16} />
+        Full width
+      </span>
+      <span
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+          checked ? "bg-moss" : "bg-line"
+        }`}
+      >
+        <span
+          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-4.5" : "translate-x-0.75"
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
 
 export default function Sidebar({
   collapsed,
@@ -30,9 +66,13 @@ export default function Sidebar({
   const createPage = useNotesStore((s) => s.createPage);
   const deletePage = useNotesStore((s) => s.deletePage);
   const duplicatePage = useNotesStore((s) => s.duplicatePage);
+  // Per-page setting, same pattern as coverPosition — see the store
+  // snippet at the bottom of this file for the action to add.
+  const setFullWidth = useNotesStore((s) => s.setFullWidth);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const sorted = [...pages].sort((a, b) => b.updatedAt - a.updatedAt);
+  const activePage = pages.find((p) => p.id === activePageId);
 
   if (collapsed) {
     return (
@@ -150,6 +190,15 @@ export default function Sidebar({
         ))}
       </div>
 
+      {activePage && (
+        <div className="border-t border-line px-2 py-2">
+          <FullWidthToggle
+            checked={!!activePage.fullWidth}
+            onChange={(next) => setFullWidth(activePage.id, next)}
+          />
+        </div>
+      )}
+
       <div className="flex items-center justify-between border-t border-line px-4 py-3">
         <span className="text-xs text-ink-soft">Saved on this device</span>
         <div className="flex items-center gap-1.5">
@@ -169,3 +218,17 @@ export default function Sidebar({
     </div>
   );
 }
+
+// --- Store / type additions needed for this toggle to persist ---
+//
+// type Page = {
+//   ...
+//   fullWidth?: boolean; // Notion-style per-page content width setting
+// };
+//
+// setFullWidth: (id: string, fullWidth: boolean) =>
+//   set((state) => ({
+//     pages: state.pages.map((p) =>
+//       p.id === id ? { ...p, fullWidth } : p
+//     ),
+//   })),

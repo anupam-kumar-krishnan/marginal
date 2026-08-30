@@ -37,10 +37,10 @@ const EMOJIS = [
   "⚡",
   "🌸",
   "🕊️",
+  "👨‍💻",
+  "💎",
 ];
 
-// Curated solid colors and gradients for cover backgrounds.
-// Stored directly as CSS `background` values on page.cover.
 const SOLID_COVERS = [
   "#7BAB8E",
   "#5B8FB9",
@@ -63,9 +63,6 @@ const GRADIENT_COVERS = [
   "linear-gradient(135deg, #FDFC47, #24FE41)",
 ];
 
-// An uploaded cover is a data/blob/http URL; anything else (hex or a
-// linear-gradient string) is a plain CSS background value, which can't
-// be repositioned since there's no image to pan.
 function isImageCover(cover: string) {
   return (
     cover.startsWith("data:") ||
@@ -154,17 +151,13 @@ export default function CoverHeader({
   onTitleEnter,
 }: {
   page: Page;
-  // Called when the user presses Enter in the title. The parent owns the
-  // body editor, so it decides what "next line" means (e.g. focusing the
-  // first block of the editor below the title).
+
   onTitleEnter?: () => void;
 }) {
   const updateTitle = useNotesStore((s) => s.updateTitle);
   const updateIcon = useNotesStore((s) => s.updateIcon);
   const updateCover = useNotesStore((s) => s.updateCover);
-  // Add `coverPosition?: number` (0-100, vertical anchor) to your Page type
-  // and an updateCoverPosition(id, value) action to the store — see note
-  // at the bottom of this file for the store snippet.
+
   const updateCoverPosition = useNotesStore((s) => s.updateCoverPosition);
 
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -315,7 +308,14 @@ export default function CoverHeader({
         </div>
       ) : null}
 
-      <div className="max-w-3xl px-6 md:px-10">
+      <div
+        className="px-6 md:px-10"
+        style={{
+          maxWidth: page.fullWidth ? "100%" : "48rem",
+          marginLeft: page.fullWidth ? undefined : "auto",
+          marginRight: page.fullWidth ? undefined : "auto",
+        }}
+      >
         <div
           className={`group flex items-center gap-3 ${page.cover ? "-mt-9" : "pt-14"}`}
         >
@@ -406,10 +406,8 @@ export default function CoverHeader({
           onInput={(e) => updateTitle(page.id, e.currentTarget.innerText)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              // The title is single-line, so swallow the newline...
               e.preventDefault();
-              // ...and hand off to the parent, which owns the body editor
-              // and knows how to move focus into its first block.
+
               onTitleEnter?.();
             }
           }}
@@ -419,40 +417,3 @@ export default function CoverHeader({
     </div>
   );
 }
-
-// --- Store / type additions needed for repositioning to persist ---
-//
-// type Page = {
-//   ...
-//   coverPosition?: number; // 0-100, vertical anchor for object-position
-// };
-//
-// updateCoverPosition: (id: string, position: number) =>
-//   set((state) => ({
-//     pages: state.pages.map((p) =>
-//       p.id === id ? { ...p, coverPosition: position } : p
-//     ),
-//   })),
-
-// --- Wiring it up in the parent page component ---
-//
-// The body editor lives outside this component, so CoverHeader can't
-// reach into it directly. Pass a callback that focuses it:
-//
-// function PageView({ page }: { page: Page }) {
-//   const bodyEditorRef = useRef<{ focus: () => void }>(null);
-//
-//   return (
-//     <>
-//       <CoverHeader
-//         page={page}
-//         onTitleEnter={() => bodyEditorRef.current?.focus()}
-//       />
-//       <BodyEditor ref={bodyEditorRef} page={page} />
-//     </>
-//   );
-// }
-//
-// `BodyEditor` should expose a `focus()` method (e.g. via
-// `useImperativeHandle` if it's a custom contentEditable, or by calling
-// `editor.commands.focus()` if you're using Tiptap/ProseMirror).
