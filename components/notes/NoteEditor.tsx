@@ -111,6 +111,14 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
         };
         commit(next);
         setSlash(null);
+        // The block's contentEditable div stays focused throughout the
+        // whole "/heading1" -> select flow, so Editable's state->DOM
+        // sync effect (which only runs while NOT focused, to avoid
+        // clobbering the caret mid-typing) never fires here. Without
+        // this, the literal "/query" text is left behind in the DOM
+        // even though block.content is now "".
+        const el = blockRefs.current.get(id);
+        if (el) el.innerText = "";
         focusBlock(id, "start");
       },
       [blocks, commit, focusBlock],
@@ -334,11 +342,24 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
               // by the wrapping <div> in page.tsx around <NoteEditor>.
               // Don't repeat it here — doing so double-pads blocks and
               // pushes them out of alignment with CoverHeader's title,
-              // which gets its px-6 md:px-10 exactly once. This wrapper
-              // only needs to cap the width so long lines wrap the same
-              // as the title does.
-              block.type === "kanban" ? "w-full" : "max-w-3xl"
+              // which gets its px-6 md:px-10 exactly once.
+              //
+              // Width is controlled via inline style below (not a
+              // Tailwind class) because max-w-3xl/max-w-full swapped
+              // via a ternary wasn't reliably applying in this project's
+              // build — see debugging history. Kanban blocks always
+              // span full width regardless of the page setting.
+              block.type === "kanban" ? "w-full" : ""
             }`}
+            style={
+              block.type === "kanban"
+                ? undefined
+                : {
+                    maxWidth: page.fullWidth ? "100%" : "48rem",
+                    marginLeft: page.fullWidth ? undefined : "auto",
+                    marginRight: page.fullWidth ? undefined : "auto",
+                  }
+            }
           >
             <Block
               block={block}

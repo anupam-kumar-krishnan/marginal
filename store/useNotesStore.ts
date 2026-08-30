@@ -19,6 +19,7 @@ interface NotesState {
   updateIcon: (id: string, icon: string) => void;
   updateCover: (id: string, cover: string | null) => void;
   updateCoverPosition: (id: string, pos: number) => void;
+  setFullWidth: (id: string, fullWidth: boolean) => void;
   setBlocks: (id: string, blocks: Block[]) => void;
   toggleTheme: () => void;
 }
@@ -57,7 +58,7 @@ export const useNotesStore = create<NotesState>()(
         set({
           pages: remaining,
           activePageId:
-            activePageId === id ? remaining[0]?.id ?? null : activePageId,
+            activePageId === id ? (remaining[0]?.id ?? null) : activePageId,
         });
       },
 
@@ -78,7 +79,7 @@ export const useNotesStore = create<NotesState>()(
       updateTitle: (id, title) =>
         set((s) => ({
           pages: s.pages.map((p) =>
-            p.id === id ? { ...p, title, updatedAt: Date.now() } : p
+            p.id === id ? { ...p, title, updatedAt: Date.now() } : p,
           ),
         })),
 
@@ -90,21 +91,26 @@ export const useNotesStore = create<NotesState>()(
       updateCover: (id, cover) =>
         set((s) => ({
           pages: s.pages.map((p) =>
-            p.id === id ? { ...p, cover, coverPosition: 50 } : p
+            p.id === id ? { ...p, cover, coverPosition: 50 } : p,
           ),
         })),
 
       updateCoverPosition: (id, pos) =>
         set((s) => ({
           pages: s.pages.map((p) =>
-            p.id === id ? { ...p, coverPosition: pos } : p
+            p.id === id ? { ...p, coverPosition: pos } : p,
           ),
+        })),
+
+      setFullWidth: (id, fullWidth) =>
+        set((s) => ({
+          pages: s.pages.map((p) => (p.id === id ? { ...p, fullWidth } : p)),
         })),
 
       setBlocks: (id, blocks) =>
         set((s) => ({
           pages: s.pages.map((p) =>
-            p.id === id ? { ...p, blocks, updatedAt: Date.now() } : p
+            p.id === id ? { ...p, blocks, updatedAt: Date.now() } : p,
           ),
         })),
 
@@ -116,6 +122,6 @@ export const useNotesStore = create<NotesState>()(
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },
-    }
-  )
+    },
+  ),
 );

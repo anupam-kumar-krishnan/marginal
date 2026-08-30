@@ -15,6 +15,7 @@ export interface Page {
   blocks: Block[];
   createdAt: number;
   updatedAt: number;
+  fullWidth?: boolean;
 }
 
 export type BlockType =
