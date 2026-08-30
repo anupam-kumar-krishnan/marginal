@@ -70,8 +70,12 @@ export default function Sidebar({
           href="/"
           className="flex items-center gap-1.5 text-sm text-ink-soft transition hover:text-ink"
         >
-          <ArrowLeft size={14} />
-          Home
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-ink font-display text-sm font-medium text-paper">
+              M
+            </span>
+            <span className="font-display text-lg font-medium">Marginal</span>
+          </div>
         </Link>
         <button
           onClick={onToggleCollapsed}
@@ -82,15 +86,15 @@ export default function Sidebar({
         </button>
       </div>
 
-      <div className="flex items-center gap-2 px-4 pb-3 pt-4">
+      {/* <div className="flex items-center gap-2 px-4 pb-3 pt-4">
         <NotebookPen size={18} className="text-moss" />
         <span className="font-display text-lg font-medium">Marginal</span>
-      </div>
+      </div> */}
 
       <div className="px-3">
         <button
           onClick={() => setPickerOpen(true)}
-          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-ink-soft transition hover:bg-paper hover:text-ink"
+          className="flex mt-5 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-ink-soft transition hover:bg-paper hover:text-ink"
         >
           <Plus size={16} />
           New page
