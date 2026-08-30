@@ -4,23 +4,20 @@ import { useEffect, useState } from "react";
 
 type FontId = "default" | "serif" | "mono";
 
-const FONTS: { id: FontId; label: string; stack: string }[] = [
+const FONTS: { id: FontId; label: string; stack: string; size: string }[] = [
   {
     id: "default",
     label: "Default",
     stack:
-      'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  },
-  {
-    id: "serif",
-    label: "Serif",
-    stack: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
+      'ui-sans-serif, system-ui, -apple-system, "Inter", Roboto, sans-serif',
+    size: "1rem",
   },
   {
     id: "mono",
     label: "Mono",
     stack:
       'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+    size: "1.8rem",
   },
 ];
 
@@ -39,6 +36,7 @@ export default function FontToggle() {
   const applyFont = (id: FontId) => {
     const font = FONTS.find((f) => f.id === id) ?? FONTS[0];
     document.body.style.fontFamily = font.stack;
+    document.body.style.fontSize = font.size;
   };
 
   const handlePick = (id: FontId) => {

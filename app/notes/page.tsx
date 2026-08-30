@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNotesStore } from "@/store/useNotesStore";
 import Sidebar from "@/components/notes/Sidebar";
 import CoverHeader from "@/components/notes/CoverHeader";
-import NoteEditor from "@/components/notes/NoteEditor";
+import NoteEditor, {
+  type NoteEditorHandle,
+} from "@/components/notes/NoteEditor";
 
 export default function NotesPage() {
   const hasHydrated = useNotesStore((s) => s.hasHydrated);
@@ -13,6 +15,9 @@ export default function NotesPage() {
   const createPage = useNotesStore((s) => s.createPage);
   const setActivePage = useNotesStore((s) => s.setActivePage);
   const [collapsed, setCollapsed] = useState(false);
+  // Lets CoverHeader hand off focus to NoteEditor's first block when
+  // the user presses Enter in the title.
+  const editorRef = useRef<NoteEditorHandle>(null);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -47,9 +52,16 @@ export default function NotesPage() {
       <main className="flex-1 overflow-y-auto">
         {activePage ? (
           <div className="pb-32">
-            <CoverHeader page={activePage} />
+            <CoverHeader
+              page={activePage}
+              onTitleEnter={() => editorRef.current?.focusFirst()}
+            />
             <div className="px-6 pt-8 md:px-10">
-              <NoteEditor key={activePage.id} page={activePage} />
+              <NoteEditor
+                ref={editorRef}
+                key={activePage.id}
+                page={activePage}
+              />
             </div>
           </div>
         ) : (

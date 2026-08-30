@@ -115,7 +115,7 @@ export default function KanbanBoard({
 
   return (
     <div className="w-full">
-      <div className="flex justify-end gap-3 overflow-x-auto pb-2">
+      <div className="flex justify-start gap-3 overflow-x-auto pb-2">
         {board.columns.map((col) => (
           <div
             key={col.id}
