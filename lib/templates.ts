@@ -40,7 +40,7 @@ export const templates: Template[] = [
     description: "Start with a clean, empty page.",
     icon: "\u{1F4C4}",
     accent: "#6B675F",
-    title: "Untitled",
+    title: "New Page",
     blocks: () => [b("paragraph", "")],
   },
   {
