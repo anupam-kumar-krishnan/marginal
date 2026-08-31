@@ -17,7 +17,7 @@ const FONTS: { id: FontId; label: string; stack: string; size: string }[] = [
     label: "Mono",
     stack:
       'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
-    size: "1.8rem",
+    size: "1.2rem",
   },
 ];
 
