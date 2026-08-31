@@ -61,6 +61,19 @@ export default function NotesPage() {
                 maxWidth: activePage.fullWidth ? "100%" : "48rem",
                 marginLeft: activePage.fullWidth ? undefined : "auto",
                 marginRight: activePage.fullWidth ? undefined : "auto",
+                // In full-width mode the content runs edge-to-edge, so
+                // it sits right under the sidebar's resize handle /
+                // stripe border. This padding needs to comfortably fit
+                // the full -left-16 (64px) gutter offset used by the
+                // block hover-controls in NoteEditor.tsx *plus* a gap
+                // before the text — 6rem (96px) puts the controls
+                // ~32px past the sidebar's stripe edge (24px) and
+                // ~14px clear of the text start. If you resize the
+                // sidebar's stripe strip or the gutter's button count,
+                // recheck this number rather than shrinking the
+                // gutter offset instead. Narrow (non-full-width) mode
+                // is unaffected.
+                paddingLeft: activePage.fullWidth ? "6rem" : undefined,
               }}
             >
               <NoteEditor

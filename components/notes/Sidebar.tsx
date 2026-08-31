@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
@@ -19,6 +19,10 @@ import ThemeToggle from "./ThemeToggle";
 import FontToggle from "./FontToggle";
 import TemplatePicker from "./TemplatePicker";
 import { PageIcon } from "./PageIcon";
+
+const DEFAULT_SIDEBAR_WIDTH = 288; // matches the previous fixed w-72
+const MIN_SIDEBAR_WIDTH = 220;
+const MAX_SIDEBAR_WIDTH = 420;
 
 function hasKanbanBlock(page: Page) {
   return page.blocks.some((b) => b.type === "kanban");
@@ -87,11 +91,47 @@ export default function Sidebar({
   const setFullWidth = useNotesStore((s) => s.setFullWidth);
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  // --- Resizable width, with a hover/drag-highlighted handle in place
+  // of the old plain 1px divider. Uses pointer capture directly on the
+  // handle element (rather than window listeners) so the drag keeps
+  // working reliably even if the cursor moves fast or briefly leaves
+  // the handle's hit area. ---
+  const [width, setWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartRef = useRef<{ startX: number; startWidth: number } | null>(
+    null,
+  );
+
+  const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    resizeStartRef.current = { startX: e.clientX, startWidth: width };
+    setIsResizing(true);
+  };
+
+  const handleResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const start = resizeStartRef.current;
+    if (!start) return;
+    const delta = e.clientX - start.startX;
+    const next = Math.min(
+      MAX_SIDEBAR_WIDTH,
+      Math.max(MIN_SIDEBAR_WIDTH, start.startWidth + delta),
+    );
+    setWidth(next);
+  };
+
+  const endResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    resizeStartRef.current = null;
+    setIsResizing(false);
+  };
+
   const sorted = [...pages].sort((a, b) => b.updatedAt - a.updatedAt);
   const activePage = pages.find((p) => p.id === activePageId);
   const activePageHasKanban = activePage ? hasKanbanBlock(activePage) : false;
 
-  
   useEffect(() => {
     if (activePage && activePageHasKanban && !activePage.fullWidth) {
       setFullWidth(activePage.id, true);
@@ -128,7 +168,12 @@ export default function Sidebar({
   }
 
   return (
-    <div className="flex h-full w-72 flex-col border-r border-line bg-paper-soft">
+    <div
+      className={`relative flex h-full shrink-0 flex-col border-r border-line bg-paper-soft ${
+        isResizing ? "select-none" : ""
+      }`}
+      style={{ width }}
+    >
       <div className="flex items-center justify-between px-4 pt-4">
         <Link
           href="/"
@@ -243,6 +288,45 @@ export default function Sidebar({
           setPickerOpen(false);
         }}
       />
+
+      {/* Diagonal hairline-stripe border, sits along the right edge of
+          the sidebar (purely decorative, so it's pointer-events-none
+          and sits below the resize handle in z-index). Has its own
+          solid sidebar-matching background so the page content behind
+          it (e.g. a cover image) never shows through — the stripes are
+          painted on top of that solid fill, not instead of it. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-6 top-0 z-10 h-full w-6 bg-paper-soft"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(45deg, transparent 0px, transparent 3px, var(--color-line, rgba(255,255,255,0.35)) 3px, var(--color-line, rgba(255,255,255,0.35)) 4px)",
+        }}
+      />
+
+      {/* Resize handle: a wider invisible hit-zone straddling the
+          border, with a thin visible bar that lights up (moss accent,
+          matching the theme) on hover or while dragging — replacing
+          the old plain 1px border-line divider. Pointer capture keeps
+          the drag tracking even if the cursor moves faster than the
+          hit-zone, or briefly leaves it. Sits above the stripe layer
+          so dragging still works. */}
+      <div
+        onPointerDown={startResize}
+        onPointerMove={handleResizeMove}
+        onPointerUp={endResize}
+        onPointerCancel={endResize}
+        style={{ touchAction: "none" }}
+        className="group/resize absolute -right-2 top-0 z-20 h-full w-4 cursor-col-resize"
+      >
+        <div
+          className={`mx-auto h-full w-0.75 rounded-full transition-colors ${
+            isResizing
+              ? "bg-moss"
+              : "bg-transparent group-hover/resize:bg-moss/60"
+          }`}
+        />
+      </div>
     </div>
   );
 }
