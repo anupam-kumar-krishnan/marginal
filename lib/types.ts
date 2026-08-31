@@ -51,8 +51,8 @@ export interface Block {
   toggleCollapsed?: boolean;
   toggleChildren?: ToggleChild[];
   table?: TableData;
-  /** For type "page": id of the linked/child page this block opens. */
   pageId?: string;
+  codeLanguage?: string;
 }
 
 export interface Page {

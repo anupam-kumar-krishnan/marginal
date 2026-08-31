@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import {
@@ -14,24 +14,43 @@ import {
   MoveHorizontal,
 } from "lucide-react";
 import { useNotesStore } from "@/store/useNotesStore";
+import type { Page } from "@/lib/types";
 import ThemeToggle from "./ThemeToggle";
 import FontToggle from "./FontToggle";
 import TemplatePicker from "./TemplatePicker";
 import { PageIcon } from "./PageIcon";
 
+function hasKanbanBlock(page: Page) {
+  return page.blocks.some((b) => b.type === "kanban");
+}
+
 function FullWidthToggle({
   checked,
   onChange,
+  disabled,
+  disabledReason,
 }: {
   checked: boolean;
   onChange: (next: boolean) => void;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   return (
     <button
-      onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm text-ink-soft transition hover:bg-paper hover:text-ink"
+      onClick={() => {
+        if (disabled) return;
+        onChange(!checked);
+      }}
+      disabled={disabled}
+      title={disabled ? disabledReason : undefined}
+      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm text-ink-soft transition ${
+        disabled
+          ? "cursor-not-allowed opacity-70"
+          : "hover:bg-paper hover:text-ink"
+      }`}
       role="switch"
       aria-checked={checked}
+      aria-disabled={disabled}
     >
       <span className="flex items-center gap-2">
         <MoveHorizontal size={16} />
@@ -70,6 +89,14 @@ export default function Sidebar({
 
   const sorted = [...pages].sort((a, b) => b.updatedAt - a.updatedAt);
   const activePage = pages.find((p) => p.id === activePageId);
+  const activePageHasKanban = activePage ? hasKanbanBlock(activePage) : false;
+
+  
+  useEffect(() => {
+    if (activePage && activePageHasKanban && !activePage.fullWidth) {
+      setFullWidth(activePage.id, true);
+    }
+  }, [activePage, activePageHasKanban, setFullWidth]);
 
   if (collapsed) {
     return (
@@ -192,8 +219,10 @@ export default function Sidebar({
       {activePage && (
         <div className="border-t border-line px-2 py-2">
           <FullWidthToggle
-            checked={!!activePage.fullWidth}
+            checked={activePageHasKanban ? true : !!activePage.fullWidth}
             onChange={(next) => setFullWidth(activePage.id, next)}
+            disabled={activePageHasKanban}
+            disabledReason="Pages with a Kanban board are always full width"
           />
         </div>
       )}

@@ -536,11 +536,10 @@ const SOLID_COVERS = [
   "#7BAB8E",
   "#5B8FB9",
   "#A78BFA",
-  "#EF7C8E",
+  "#EB5757",
   "#F2A65A",
-  "#8E8D8A",
-  "#2F3E33",
-  "#1F2937",
+  "#FFEFE3",
+  "#FF3992",
 ];
 
 const GRADIENT_COVERS = [
@@ -650,9 +649,7 @@ function IconPicker({ page, onClose }: { page: Page; onClose: () => void }) {
     try {
       const raw = localStorage.getItem("marginal-recent-icons");
       if (raw) setRecent(JSON.parse(raw));
-    } catch {
-      // ignore malformed/unavailable storage
-    }
+    } catch {}
   }, []);
 
   const pushRecent = (value: string) => {
@@ -1065,7 +1062,7 @@ export default function CoverHeader({
                 </button>
                 <button
                   onClick={finishRepositioning}
-                  className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-ink transition hover:bg-white/90"
+                  className="flex items-center gap-1.5 rounded-lg bg-black/55 px-2.5 py-1.5 text-xs font-medium text-ink transition hover:bg-black/70"
                 >
                   <Check size={12} /> Save position
                 </button>

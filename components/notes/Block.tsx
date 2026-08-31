@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type {
   Block as BlockT,
   KanbanData,
@@ -14,9 +16,15 @@ interface BlockProps {
   block: BlockT;
   index: number;
   numberIndex?: number;
-  registerRef: (id: string, el: HTMLDivElement | null) => void;
+  registerRef: (
+    id: string,
+    el: HTMLDivElement | HTMLTextAreaElement | null,
+  ) => void;
   onInput: (id: string, text: string) => void;
-  onKeyDown: (id: string, e: React.KeyboardEvent<HTMLDivElement>) => void;
+  onKeyDown: (
+    id: string,
+    e: React.KeyboardEvent<HTMLDivElement | HTMLTextAreaElement>,
+  ) => void;
   onToggleCheck: (id: string) => void;
   onImageUpload: (id: string, file: File) => void;
   onRemoveImage: (id: string) => void;
@@ -28,6 +36,7 @@ interface BlockProps {
   ) => void;
   onTableChange: (id: string, table: TableData) => void;
   onOpenPage: (id: string, pageId?: string) => void;
+  onCodeLanguageChange: (id: string, language: string) => void;
 }
 
 const placeholderFor = (type: BlockT["type"], index: number) => {
@@ -62,6 +71,128 @@ const typeClass: Record<string, string> = {
   callout: "text-[15px] leading-7",
   toggle: "text-[15px] leading-7 font-medium",
 };
+
+const CODE_LANGUAGES = [
+  { value: "auto", label: "Auto-detect" },
+  { value: "plaintext", label: "Plain Text" },
+  { value: "javascript", label: "JavaScript" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "jsx", label: "JSX" },
+  { value: "tsx", label: "TSX" },
+  { value: "python", label: "Python" },
+  { value: "bash", label: "Bash" },
+  { value: "json", label: "JSON" },
+  { value: "css", label: "CSS" },
+  { value: "html", label: "HTML" },
+  { value: "sql", label: "SQL" },
+  { value: "markdown", label: "Markdown" },
+  { value: "yaml", label: "YAML" },
+  { value: "go", label: "Go" },
+  { value: "rust", label: "Rust" },
+  { value: "java", label: "Java" },
+];
+
+function detectLanguage(code: string): string {
+  const src = code ?? "";
+  const trimmed = src.trim();
+  if (!trimmed) return "plaintext";
+
+  if (trimmed[0] === "{" || trimmed[0] === "[") {
+    try {
+      JSON.parse(trimmed);
+      return "json";
+    } catch {}
+  }
+
+  const hasJsxTag =
+    /<\/?[A-Z][\w.]*[^>]*>/.test(src) || /<>[\s\S]*<\/>/.test(src);
+  const hasTsSignals =
+    /:\s*(string|number|boolean|any|void|unknown|React\.\w+)\b/.test(src) ||
+    /\binterface\s+\w+/.test(src) ||
+    /\btype\s+\w+\s*=/.test(src) ||
+    /\bimplements\s+\w+/.test(src);
+
+  if (hasJsxTag) return hasTsSignals ? "tsx" : "jsx";
+
+  if (
+    /<!doctype html>/i.test(src) ||
+    /<html[\s>]/i.test(src) ||
+    (/<head[\s>]/i.test(src) && /<body[\s>]/i.test(src))
+  ) {
+    return "html";
+  }
+
+  if (
+    !/\b(function|const|let|var)\b/.test(src) &&
+    /[.#]?[\w-]+\s*\{[^{}]*:[^{}]*;[^{}]*\}/.test(src)
+  ) {
+    return "css";
+  }
+
+  if (
+    /^\s*(def |import |from\s+\S+\s+import|elif\b|print\()/m.test(src) &&
+    !/;\s*$/m.test(src)
+  ) {
+    return "python";
+  }
+
+  if (
+    /^#!.*\b(bash|sh|zsh)\b/.test(src) ||
+    (/\becho\s+["'$]/.test(src) && /\bfi\b/.test(src)) ||
+    (/\bthen\b/.test(src) && /\bfi\b/.test(src))
+  ) {
+    return "bash";
+  }
+
+  if (
+    /\bSELECT\b[\s\S]*\bFROM\b/i.test(src) ||
+    /\bCREATE\s+TABLE\b/i.test(src) ||
+    /\bINSERT\s+INTO\b/i.test(src)
+  ) {
+    return "sql";
+  }
+
+  if (/\bpackage\s+main\b/.test(src) && /\bfunc\s+\w+\(/.test(src)) {
+    return "go";
+  }
+
+  if (
+    /\bfn\s+\w+\(/.test(src) &&
+    (/::/.test(src) || /\blet\s+mut\b/.test(src) || /println!/.test(src))
+  ) {
+    return "rust";
+  }
+
+  if (/\bpublic\s+(class|static)\b/.test(src) && /;\s*$/m.test(src)) {
+    return "java";
+  }
+
+  if (hasTsSignals) return "typescript";
+
+  if (
+    /^---/m.test(src) &&
+    /^\s*[\w-]+:\s*\S/m.test(src) &&
+    !/[{};]/.test(src)
+  ) {
+    return "yaml";
+  }
+
+  if (/^#{1,6}\s+\S/m.test(src) || /\[.+\]\(.+\)/.test(src)) {
+    return "markdown";
+  }
+
+  if (
+    /\b(const|let|var)\s+\w+\s*=/.test(src) ||
+    /=>/.test(src) ||
+    /\bfunction\s+\w+\(/.test(src) ||
+    /\bconsole\.\w+\(/.test(src) ||
+    /\brequire\(/.test(src)
+  ) {
+    return "javascript";
+  }
+
+  return "plaintext";
+}
 
 function Editable({
   block,
@@ -106,11 +237,185 @@ function Editable({
   );
 }
 
-/**
- * One editable line inside a toggle's collapsible body. Deliberately
- * simple (no slash menu, no block-type switching) — this is a plain
- * text line, not a full nested Block.
- */
+function LanguagePicker({
+  value,
+  detectedLanguage,
+  onChange,
+}: {
+  value: string;
+  detectedLanguage?: string;
+  onChange: (language: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const current =
+    CODE_LANGUAGES.find((l) => l.value === value) ?? CODE_LANGUAGES[0];
+  const detectedMeta =
+    value === "auto" && detectedLanguage
+      ? CODE_LANGUAGES.find((l) => l.value === detectedLanguage)
+      : undefined;
+
+  const buttonLabel =
+    detectedMeta && detectedMeta.value !== "plaintext"
+      ? `Auto \u00B7 ${detectedMeta.label}`
+      : current.label;
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-ink-soft transition hover:bg-line/40 hover:text-ink"
+      >
+        {buttonLabel}
+        <span
+          className={`text-[9px] transition-transform ${open ? "rotate-180" : ""}`}
+        >
+          {"\u25BE"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full z-30 mt-1 max-h-64 w-44 overflow-y-auto rounded-lg border border-line bg-paper py-1 shadow-lg">
+          {CODE_LANGUAGES.map((l) => (
+            <button
+              key={l.value}
+              type="button"
+              onClick={() => {
+                onChange(l.value);
+                setOpen(false);
+              }}
+              className={`block w-full px-3 py-1.5 text-left text-xs transition ${
+                l.value === value
+                  ? "bg-moss/10 text-moss"
+                  : "text-ink-soft hover:bg-paper-soft hover:text-ink"
+              }`}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CodeBlock({
+  block,
+  index,
+  registerRef,
+  onInput,
+  onKeyDown,
+  onFocusBlock,
+  onLanguageChange,
+}: {
+  block: BlockT;
+  index: number;
+  registerRef: (
+    id: string,
+    el: HTMLDivElement | HTMLTextAreaElement | null,
+  ) => void;
+  onInput: (id: string, text: string) => void;
+  onKeyDown: (
+    id: string,
+    e: React.KeyboardEvent<HTMLDivElement | HTMLTextAreaElement>,
+  ) => void;
+  onFocusBlock: (id: string) => void;
+  onLanguageChange: (id: string, language: string) => void;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const selectedLanguage = block.codeLanguage || "auto";
+  const isAuto = selectedLanguage === "auto";
+  const detected = isAuto ? detectLanguage(block.content) : selectedLanguage;
+  const highlightLanguage = detected === "plaintext" ? "text" : detected;
+  const [height, setHeight] = useState<number>();
+
+  const updateHeight = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    setHeight(el.scrollHeight);
+  };
+
+  useEffect(() => {
+    updateHeight();
+  }, [block.content]);
+
+  return (
+    <div className="rounded-lg bg-paper-soft">
+      <div className="flex items-center justify-between rounded-t-lg border-b border-line/60 px-2 py-1">
+        <LanguagePicker
+          value={selectedLanguage}
+          detectedLanguage={isAuto ? detected : undefined}
+          onChange={(lang) => onLanguageChange(block.id, lang)}
+        />
+      </div>
+
+      <div
+        className="relative overflow-hidden rounded-b-lg"
+        style={{ height: height ? `${height}px` : undefined }}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-4 py-3 font-mono text-sm leading-6"
+        >
+          <SyntaxHighlighter
+            language={highlightLanguage}
+            style={oneLight}
+            customStyle={{
+              margin: 0,
+              padding: 0,
+              background: "transparent",
+              fontSize: "inherit",
+              fontFamily: "inherit",
+              lineHeight: "inherit",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+            codeTagProps={{ style: { fontFamily: "inherit" } }}
+          >
+            {block.content ? block.content : " "}
+          </SyntaxHighlighter>
+        </div>
+
+        <textarea
+          ref={(el) => {
+            textareaRef.current = el;
+            registerRef(block.id, el);
+          }}
+          value={block.content}
+          spellCheck={false}
+          placeholder={placeholderFor(block.type ?? "code", index)}
+          className="absolute inset-0 h-full w-full resize-none overflow-hidden whitespace-pre-wrap break-words bg-transparent px-4 py-3 font-mono text-sm leading-6 text-transparent caret-ink outline-none selection:bg-ink/15 selection:text-transparent placeholder:text-ink-soft"
+          style={{ WebkitTextFillColor: "transparent" }}
+          onChange={(e) => onInput(block.id, e.target.value)}
+          onKeyDown={(e) => onKeyDown(block.id, e)}
+          onFocus={() => onFocusBlock(block.id)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ToggleChildLine({
   child,
   onChange,
@@ -344,6 +649,7 @@ export default function Block({
   onToggleChange,
   onTableChange,
   onOpenPage,
+  onCodeLanguageChange,
 }: BlockProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -388,6 +694,20 @@ export default function Block({
           {block.content || "Untitled"}
         </span>
       </button>
+    );
+  }
+
+  if (block.type === "code") {
+    return (
+      <CodeBlock
+        block={block}
+        index={index}
+        registerRef={registerRef}
+        onInput={onInput}
+        onKeyDown={onKeyDown}
+        onFocusBlock={onFocusBlock}
+        onLanguageChange={onCodeLanguageChange}
+      />
     );
   }
 
