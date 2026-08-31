@@ -17,9 +17,8 @@ import { useNotesStore } from "@/store/useNotesStore";
 import ThemeToggle from "./ThemeToggle";
 import FontToggle from "./FontToggle";
 import TemplatePicker from "./TemplatePicker";
+import { PageIcon } from "./PageIcon";
 
-// A small Notion-style pill switch: icon + label on the left, a
-// rounded toggle knob on the right.
 function FullWidthToggle({
   checked,
   onChange,
@@ -66,8 +65,6 @@ export default function Sidebar({
   const createPage = useNotesStore((s) => s.createPage);
   const deletePage = useNotesStore((s) => s.deletePage);
   const duplicatePage = useNotesStore((s) => s.duplicatePage);
-  // Per-page setting, same pattern as coverPosition — see the store
-  // snippet at the bottom of this file for the action to add.
   const setFullWidth = useNotesStore((s) => s.setFullWidth);
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -126,11 +123,6 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* <div className="flex items-center gap-2 px-4 pb-3 pt-4">
-        <NotebookPen size={18} className="text-moss" />
-        <span className="font-display text-lg font-medium">Marginal</span>
-      </div> */}
-
       <div className="px-3">
         <button
           onClick={() => setPickerOpen(true)}
@@ -161,7 +153,14 @@ export default function Sidebar({
                   : "hover:bg-paper"
               }`}
             >
-              <span className="shrink-0">{page.icon || "📄"}</span>
+              <span className="shrink-0">
+                <PageIcon
+                  icon={page.icon}
+                  color={page.iconColor}
+                  size={16}
+                  className="text-base"
+                />
+              </span>
               <span className="truncate">{page.title || "Untitled"}</span>
             </button>
             <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-0.5 opacity-0 transition group-hover:opacity-100">
@@ -218,17 +217,3 @@ export default function Sidebar({
     </div>
   );
 }
-
-// --- Store / type additions needed for this toggle to persist ---
-//
-// type Page = {
-//   ...
-//   fullWidth?: boolean; // Notion-style per-page content width setting
-// };
-//
-// setFullWidth: (id: string, fullWidth: boolean) =>
-//   set((state) => ({
-//     pages: state.pages.map((p) =>
-//       p.id === id ? { ...p, fullWidth } : p
-//     ),
-//   })),

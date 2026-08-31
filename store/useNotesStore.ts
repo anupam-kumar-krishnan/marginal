@@ -17,6 +17,7 @@ interface NotesState {
   duplicatePage: (id: string) => void;
   updateTitle: (id: string, title: string) => void;
   updateIcon: (id: string, icon: string) => void;
+  updateIconColor: (id: string, color: string | undefined) => void;
   updateCover: (id: string, cover: string | null) => void;
   updateCoverPosition: (id: string, pos: number) => void;
   setFullWidth: (id: string, fullWidth: boolean) => void;
@@ -86,6 +87,13 @@ export const useNotesStore = create<NotesState>()(
       updateIcon: (id, icon) =>
         set((s) => ({
           pages: s.pages.map((p) => (p.id === id ? { ...p, icon } : p)),
+        })),
+
+      updateIconColor: (id, color) =>
+        set((s) => ({
+          pages: s.pages.map((p) =>
+            p.id === id ? { ...p, iconColor: color } : p,
+          ),
         })),
 
       updateCover: (id, cover) =>

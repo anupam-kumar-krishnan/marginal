@@ -10,6 +10,7 @@ export interface Page {
   id: string;
   title: string;
   icon: string;
+  iconColor?: string;
   cover: string | null;
   coverPosition?: number;
   blocks: Block[];
