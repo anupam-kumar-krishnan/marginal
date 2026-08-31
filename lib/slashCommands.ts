@@ -59,6 +59,13 @@ export const slashCommands: SlashCommand[] = [
     icon: "\u2611",
   },
   {
+    type: "toggle",
+    label: "Toggle list",
+    description: "Collapsible content with a few lines inside.",
+    keywords: ["toggle", "collapse", "expand", "dropdown", "accordion"],
+    icon: "\u25B6",
+  },
+  {
     type: "quote",
     label: "Quote",
     description: "Capture a quote or callback.",
@@ -80,11 +87,25 @@ export const slashCommands: SlashCommand[] = [
     icon: "\u2328",
   },
   {
+    type: "table",
+    label: "Table",
+    description: "A simple grid to organize data.",
+    keywords: ["table", "grid", "spreadsheet", "rows", "columns"],
+    icon: "\u25A6",
+  },
+  {
     type: "image",
     label: "Image",
     description: "Upload an image into the page.",
     keywords: ["image", "picture", "photo", "upload"],
     icon: "\u{1F5BC}\uFE0F",
+  },
+  {
+    type: "page",
+    label: "Page",
+    description: "Create a linked sub-page.",
+    keywords: ["page", "subpage", "link", "doc", "document"],
+    icon: "\u{1F4C4}",
   },
   {
     type: "divider",
