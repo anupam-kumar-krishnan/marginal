@@ -100,6 +100,49 @@ const EMOJI_CATEGORIES: { label: string; items: string[] }[] = [
       "🥱",
       "😤",
       "😡",
+      "🤖",
+      "👾",
+      "🤚",
+      "🖐️",
+      "✋",
+      "🖖",
+      "🫱",
+      "🫲",
+      "🫰",
+      "🤞",
+      "✌️",
+      "🤏",
+      "🫴",
+      "🫳",
+      "🤟",
+      "🤘",
+      "🤙",
+      "👈",
+      "👉",
+      "👆",
+      "👇",
+      "☝️",
+      "🫵",
+      "👍",
+      "👎",
+      "✊",
+      "🙌",
+      "👐",
+      "🤝",
+      "✍️",
+      "🙋‍♂️",
+      "🙋",
+      "💁‍♀️",
+      "🙅",
+      "💁",
+      "🙆",
+      "🙅‍♀️",
+      "🙆‍♀️",
+      "🙋‍♀️",
+      "👨‍👩‍👧‍👦",
+      "👩‍👦",
+      "👩‍👧‍👦",
+      "👪",
     ],
   },
   {
@@ -617,9 +660,7 @@ function IconPicker({ page, onClose }: { page: Page; onClose: () => void }) {
     setRecent(next);
     try {
       localStorage.setItem("marginal-recent-icons", JSON.stringify(next));
-    } catch {
-      // ignore storage errors (private mode, quota, etc.)
-    }
+    } catch {}
   };
 
   const pickEmoji = (emoji: string) => {

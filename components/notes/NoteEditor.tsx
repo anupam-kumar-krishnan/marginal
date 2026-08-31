@@ -12,12 +12,23 @@ import { nanoid } from "nanoid";
 import { useNotesStore } from "@/store/useNotesStore";
 import type { Block as BlockT, BlockType, Page } from "@/lib/types";
 import Block from "./Block";
+import SelectionToolbar from "./SelectionToolbar";
 import SlashMenu, { getFilteredCommands } from "./SlashMenu";
 
 interface SlashState {
   blockId: string;
   query: string;
   selectedIndex: number;
+}
+
+function isEmptyHtml(html: string) {
+  return (
+    !html ||
+    html
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, "")
+      .trim() === ""
+  );
 }
 
 export interface NoteEditorHandle {
@@ -28,6 +39,8 @@ export interface NoteEditorHandle {
 const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
   function NoteEditor({ page }, ref) {
     const setBlocks = useNotesStore((s) => s.setBlocks);
+    const createPage = useNotesStore((s) => s.createPage);
+    const setActivePage = useNotesStore((s) => s.setActivePage);
     const [slash, setSlash] = useState<SlashState | null>(null);
     const blockRefs = useRef<Map<string, HTMLDivElement>>(new Map());
     const blocks = page.blocks;
@@ -65,8 +78,7 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
             focusBlock(first.id, "start");
             return;
           }
-          // No blocks yet — create one so there's somewhere for the
-          // cursor to land.
+
           const newBlock: BlockT = {
             id: nanoid(8),
             type: "paragraph",
@@ -102,26 +114,59 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
         const idx = blocks.findIndex((b) => b.id === id);
         if (idx === -1) return;
         const next = blocks.slice();
+
+        let extra: Partial<BlockT> = {};
+
+        if (type === "todo") {
+          extra.checked = false;
+        }
+
+        if (type === "toggle") {
+          extra.toggleCollapsed = false;
+          extra.toggleChildren = [{ id: nanoid(6), content: "" }];
+        }
+
+        if (type === "table") {
+          extra.table = {
+            rows: [
+              ["", "", ""],
+              ["", "", ""],
+              ["", "", ""],
+            ],
+          };
+        }
+
+        let pageContent = "";
+        if (type === "page") {
+          const before = new Set(
+            useNotesStore.getState().pages.map((p) => p.id),
+          );
+          createPage("blank");
+          const created = useNotesStore
+            .getState()
+            .pages.find((p) => !before.has(p.id));
+          extra.pageId = created?.id;
+          pageContent = created?.title ?? "Untitled";
+        }
+
         next[idx] = {
           ...next[idx],
           type,
-          content: "",
+          content: type === "page" ? pageContent : "",
           checked: type === "todo" ? false : undefined,
           imageSrc: type === "image" ? undefined : next[idx].imageSrc,
+          ...extra,
         };
         commit(next);
         setSlash(null);
-        // The block's contentEditable div stays focused throughout the
-        // whole "/heading1" -> select flow, so Editable's state->DOM
-        // sync effect (which only runs while NOT focused, to avoid
-        // clobbering the caret mid-typing) never fires here. Without
-        // this, the literal "/query" text is left behind in the DOM
-        // even though block.content is now "".
+
         const el = blockRefs.current.get(id);
-        if (el) el.innerText = "";
-        focusBlock(id, "start");
+        if (el) el.innerText = type === "page" ? pageContent : "";
+        if (type !== "page") {
+          focusBlock(id, "start");
+        }
       },
-      [blocks, commit, focusBlock],
+      [blocks, commit, focusBlock, createPage],
     );
 
     const handleEnter = (id: string) => {
@@ -133,7 +178,7 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
         block.type === "numbered" ||
         block.type === "todo";
 
-      if (isListType && block.content.trim() === "") {
+      if (isListType && isEmptyHtml(block.content)) {
         const next = blocks.slice();
         next[idx] = { ...next[idx], type: "paragraph", checked: undefined };
         commit(next);
@@ -160,7 +205,7 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
       const sel = window.getSelection();
       const atStart = !sel || sel.anchorOffset === 0;
 
-      if (block.content === "" && idx > 0) {
+      if (isEmptyHtml(block.content) && idx > 0) {
         e.preventDefault();
         const prev = blocks[idx - 1];
         const next = blocks.filter((b) => b.id !== id);
@@ -171,7 +216,7 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
 
       if (
         atStart &&
-        block.content !== "" &&
+        !isEmptyHtml(block.content) &&
         block.type !== "paragraph" &&
         block.type !== "image"
       ) {
@@ -303,6 +348,29 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
       commit(next);
     };
 
+    const handleToggleChange = (
+      id: string,
+      patch: Pick<Partial<BlockT>, "toggleCollapsed" | "toggleChildren">,
+    ) => {
+      const idx = blocks.findIndex((b) => b.id === id);
+      if (idx === -1) return;
+      const next = blocks.slice();
+      next[idx] = { ...next[idx], ...patch };
+      commit(next);
+    };
+
+    const handleTableChange = (id: string, table: BlockT["table"]) => {
+      const idx = blocks.findIndex((b) => b.id === id);
+      if (idx === -1) return;
+      const next = blocks.slice();
+      next[idx] = { ...next[idx], table };
+      commit(next);
+    };
+
+    const handleOpenPage = (_id: string, pageId?: string) => {
+      if (pageId) setActivePage(pageId);
+    };
+
     const appendTrailingBlock = () => {
       const last = blocks[blocks.length - 1];
       if (last && last.type === "paragraph" && last.content === "") {
@@ -334,21 +402,11 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
 
     return (
       <div className="relative">
+        <SelectionToolbar />
         {blocks.map((block, index) => (
           <div
             key={block.id}
             className={`group relative py-0.75 ${
-              // NOTE: horizontal padding (px-6 md:px-10) is applied once,
-              // by the wrapping <div> in page.tsx around <NoteEditor>.
-              // Don't repeat it here — doing so double-pads blocks and
-              // pushes them out of alignment with CoverHeader's title,
-              // which gets its px-6 md:px-10 exactly once.
-              //
-              // Width is controlled via inline style below (not a
-              // Tailwind class) because max-w-3xl/max-w-full swapped
-              // via a ternary wasn't reliably applying in this project's
-              // build — see debugging history. Kanban blocks always
-              // span full width regardless of the page setting.
               block.type === "kanban" ? "w-full" : ""
             }`}
             style={
@@ -373,6 +431,9 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
               onRemoveImage={handleRemoveImage}
               onFocusBlock={() => {}}
               onKanbanChange={handleKanbanChange}
+              onToggleChange={handleToggleChange}
+              onTableChange={handleTableChange}
+              onOpenPage={handleOpenPage}
             />
             {slash && slash.blockId === block.id && (
               <SlashMenu

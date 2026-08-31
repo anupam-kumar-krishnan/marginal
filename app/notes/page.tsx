@@ -15,8 +15,7 @@ export default function NotesPage() {
   const createPage = useNotesStore((s) => s.createPage);
   const setActivePage = useNotesStore((s) => s.setActivePage);
   const [collapsed, setCollapsed] = useState(false);
-  // Lets CoverHeader hand off focus to NoteEditor's first block when
-  // the user presses Enter in the title.
+
   const editorRef = useRef<NoteEditorHandle>(null);
 
   useEffect(() => {
@@ -56,7 +55,14 @@ export default function NotesPage() {
               page={activePage}
               onTitleEnter={() => editorRef.current?.focusFirst()}
             />
-            <div className="px-6 pt-8 md:px-10">
+            <div
+              className="px-6 pt-8 md:px-10"
+              style={{
+                maxWidth: activePage.fullWidth ? "100%" : "48rem",
+                marginLeft: activePage.fullWidth ? undefined : "auto",
+                marginRight: activePage.fullWidth ? undefined : "auto",
+              }}
+            >
               <NoteEditor
                 ref={editorRef}
                 key={activePage.id}

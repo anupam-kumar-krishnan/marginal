@@ -1,24 +1,3 @@
-export interface Block {
-  id: string;
-  type: BlockType;
-  content: string;
-  checked?: boolean;
-  imageSrc?: string;
-}
-
-export interface Page {
-  id: string;
-  title: string;
-  icon: string;
-  iconColor?: string;
-  cover: string | null;
-  coverPosition?: number;
-  blocks: Block[];
-  createdAt: number;
-  updatedAt: number;
-  fullWidth?: boolean;
-}
-
 export type BlockType =
   | "paragraph"
   | "heading1"
@@ -32,7 +11,10 @@ export type BlockType =
   | "callout"
   | "divider"
   | "image"
-  | "kanban";
+  | "kanban"
+  | "toggle"
+  | "table"
+  | "page";
 
 export interface KanbanCard {
   id: string;
@@ -50,6 +32,15 @@ export interface KanbanData {
   columns: KanbanColumn[];
 }
 
+export interface ToggleChild {
+  id: string;
+  content: string;
+}
+
+export interface TableData {
+  rows: string[][];
+}
+
 export interface Block {
   id: string;
   type: BlockType;
@@ -57,4 +48,22 @@ export interface Block {
   checked?: boolean;
   imageSrc?: string;
   kanban?: KanbanData;
+  toggleCollapsed?: boolean;
+  toggleChildren?: ToggleChild[];
+  table?: TableData;
+  /** For type "page": id of the linked/child page this block opens. */
+  pageId?: string;
+}
+
+export interface Page {
+  id: string;
+  title: string;
+  icon: string;
+  iconColor?: string;
+  cover: string | null;
+  coverPosition?: number;
+  blocks: Block[];
+  createdAt: number;
+  updatedAt: number;
+  fullWidth?: boolean;
 }
