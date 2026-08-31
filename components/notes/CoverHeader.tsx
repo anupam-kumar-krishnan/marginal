@@ -1191,7 +1191,7 @@ export default function CoverHeader({
           ref={titleRef}
           contentEditable
           suppressContentEditableWarning
-          data-placeholder="Untitled"
+          data-placeholder="New Page"
           onInput={(e) => updateTitle(page.id, e.currentTarget.innerText)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
