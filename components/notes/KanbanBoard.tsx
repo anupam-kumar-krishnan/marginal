@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { KanbanData } from "@/lib/types";
+import { MdDelete } from "react-icons/md";
 
 export default function KanbanBoard({
   data,
@@ -183,7 +184,7 @@ export default function KanbanBoard({
                       }
                     }}
                     rows={1}
-                    placeholder="Untitled card"
+                    placeholder="Untitled Card"
                     className="w-full resize-none overflow-hidden bg-transparent text-sm text-ink outline-none placeholder:text-ink-soft/60"
                   />
                   <button
@@ -191,7 +192,7 @@ export default function KanbanBoard({
                     className="shrink-0 text-ink-soft opacity-0 transition group-hover:opacity-100 hover:text-ink"
                     aria-label="Remove card"
                   >
-                    ×
+                    <MdDelete className="hover:text-red-400" />
                   </button>
                 </div>
               ))}
@@ -199,9 +200,9 @@ export default function KanbanBoard({
 
             <button
               onClick={() => addCard(col.id)}
-              className="mt-0.5 rounded-lg px-2 py-1.5 text-left text-xs text-ink-soft transition hover:bg-black/5"
+              className="mt-0.5 rounded-lg px-2 py-1.5 text-left text-sm text-ink-soft transition hover:bg-black/5"
             >
-              + Add card
+              + New Card
             </button>
           </div>
         ))}

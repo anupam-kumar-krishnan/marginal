@@ -90,15 +90,15 @@ export const templates: Template[] = [
       b("kanban", "", {
         kanban: {
           columns: [
-            kanbanColumn("To-do", "#A78BFA", [
+            kanbanColumn("To-do", "#E1DFDC", [
               "Review performance metrics",
               "Respond to beta test questions",
             ]),
-            kanbanColumn("In progress", "#F0B84E", [
+            kanbanColumn("In Progress", "#F0B84E", [
               "Sales demo sync",
               "Launch demo video",
             ]),
-            kanbanColumn("In review", "#4C9AE8", [
+            kanbanColumn("In Review", "#4C9AE8", [
               "Weekly sales status report",
               "Marketing campaign designs",
             ]),

@@ -32,7 +32,6 @@ function isEmptyHtml(html: string) {
 }
 
 export interface NoteEditorHandle {
-  /** Focus the first block, creating an empty paragraph if there are none. */
   focusFirst: () => void;
 }
 
@@ -42,19 +41,31 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
     const createPage = useNotesStore((s) => s.createPage);
     const setActivePage = useNotesStore((s) => s.setActivePage);
     const [slash, setSlash] = useState<SlashState | null>(null);
-    const blockRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+    const blockRefs = useRef<Map<string, HTMLDivElement | HTMLTextAreaElement>>(
+      new Map(),
+    );
     const blocks = page.blocks;
 
-    const registerRef = useCallback((id: string, el: HTMLDivElement | null) => {
-      if (el) blockRefs.current.set(id, el);
-      else blockRefs.current.delete(id);
-    }, []);
+    const registerRef = useCallback(
+      (id: string, el: HTMLDivElement | HTMLTextAreaElement | null) => {
+        if (el) blockRefs.current.set(id, el);
+        else blockRefs.current.delete(id);
+      },
+      [],
+    );
 
     const focusBlock = useCallback((id: string, placement: "start" | "end") => {
       setTimeout(() => {
         const el = blockRefs.current.get(id);
         if (!el) return;
         el.focus();
+
+        if (el instanceof HTMLTextAreaElement) {
+          const pos = placement === "start" ? 0 : el.value.length;
+          el.setSelectionRange(pos, pos);
+          return;
+        }
+
         const range = document.createRange();
         const sel = window.getSelection();
         range.selectNodeContents(el);
@@ -136,6 +147,10 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
           };
         }
 
+        if (type === "code") {
+          extra.codeLanguage = "auto";
+        }
+
         let pageContent = "";
         if (type === "page") {
           const before = new Set(
@@ -161,7 +176,11 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
         setSlash(null);
 
         const el = blockRefs.current.get(id);
-        if (el) el.innerText = type === "page" ? pageContent : "";
+        if (el instanceof HTMLTextAreaElement) {
+          el.value = type === "page" ? pageContent : "";
+        } else if (el) {
+          el.innerText = type === "page" ? pageContent : "";
+        }
         if (type !== "page") {
           focusBlock(id, "start");
         }
@@ -198,12 +217,23 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
       focusBlock(newBlock.id, "start");
     };
 
-    const handleBackspace = (id: string, e: React.KeyboardEvent) => {
+    const handleBackspace = (
+      id: string,
+      e: React.KeyboardEvent<HTMLDivElement | HTMLTextAreaElement>,
+    ) => {
       const idx = blocks.findIndex((b) => b.id === id);
       if (idx === -1) return;
       const block = blocks[idx];
-      const sel = window.getSelection();
-      const atStart = !sel || sel.anchorOffset === 0;
+
+      let atStart: boolean;
+      if (e.currentTarget instanceof HTMLTextAreaElement) {
+        atStart =
+          e.currentTarget.selectionStart === 0 &&
+          e.currentTarget.selectionEnd === 0;
+      } else {
+        const sel = window.getSelection();
+        atStart = !sel || sel.anchorOffset === 0;
+      }
 
       if (isEmptyHtml(block.content) && idx > 0) {
         e.preventDefault();
@@ -230,7 +260,7 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
 
     const handleKeyDown = (
       id: string,
-      e: React.KeyboardEvent<HTMLDivElement>,
+      e: React.KeyboardEvent<HTMLDivElement | HTMLTextAreaElement>,
     ) => {
       if (slash && slash.blockId === id) {
         const filtered = getFilteredCommands(slash.query);
@@ -274,10 +304,24 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
         }
         if (
           e.key === "Backspace" &&
-          (e.currentTarget.innerText === "/" ||
-            e.currentTarget.innerText === "")
+          (e.currentTarget as HTMLElement).innerText !== undefined &&
+          ((e.currentTarget as HTMLDivElement).innerText === "/" ||
+            (e.currentTarget as HTMLDivElement).innerText === "")
         ) {
           setSlash(null);
+        }
+      }
+
+      const currentBlock = blocks.find((b) => b.id === id);
+
+      if (currentBlock?.type === "code") {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          handleEnter(id);
+          return;
+        }
+        if (e.key === "Enter") {
+          return;
         }
       }
 
@@ -294,17 +338,37 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
 
       if (e.key === "ArrowUp") {
         const idx = blocks.findIndex((b) => b.id === id);
-        const sel = window.getSelection();
-        if (idx > 0 && (!sel || sel.anchorOffset === 0)) {
+        let atStart: boolean;
+        if (e.currentTarget instanceof HTMLTextAreaElement) {
+          atStart =
+            e.currentTarget.selectionStart === 0 &&
+            e.currentTarget.selectionEnd === 0;
+        } else {
+          const sel = window.getSelection();
+          atStart = !sel || sel.anchorOffset === 0;
+        }
+        if (idx > 0 && atStart) {
           e.preventDefault();
           focusBlock(blocks[idx - 1].id, "end");
         }
       }
       if (e.key === "ArrowDown") {
         const idx = blocks.findIndex((b) => b.id === id);
-        const el = blockRefs.current.get(id);
-        const sel = window.getSelection();
-        const atEnd = !sel || sel.anchorOffset === (el?.innerText.length ?? 0);
+        let atEnd: boolean;
+        if (e.currentTarget instanceof HTMLTextAreaElement) {
+          const len = e.currentTarget.value.length;
+          atEnd =
+            e.currentTarget.selectionStart === len &&
+            e.currentTarget.selectionEnd === len;
+        } else {
+          const el = blockRefs.current.get(id);
+          const sel = window.getSelection();
+          const textLen =
+            el && "innerText" in el
+              ? (el as HTMLDivElement).innerText.length
+              : 0;
+          atEnd = !sel || sel.anchorOffset === textLen;
+        }
         if (idx < blocks.length - 1 && atEnd) {
           e.preventDefault();
           focusBlock(blocks[idx + 1].id, "start");
@@ -364,6 +428,14 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
       if (idx === -1) return;
       const next = blocks.slice();
       next[idx] = { ...next[idx], table };
+      commit(next);
+    };
+
+    const handleCodeLanguageChange = (id: string, codeLanguage: string) => {
+      const idx = blocks.findIndex((b) => b.id === id);
+      if (idx === -1) return;
+      const next = blocks.slice();
+      next[idx] = { ...next[idx], codeLanguage };
       commit(next);
     };
 
@@ -434,6 +506,7 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
               onToggleChange={handleToggleChange}
               onTableChange={handleTableChange}
               onOpenPage={handleOpenPage}
+              onCodeLanguageChange={handleCodeLanguageChange}
             />
             {slash && slash.blockId === block.id && (
               <SlashMenu

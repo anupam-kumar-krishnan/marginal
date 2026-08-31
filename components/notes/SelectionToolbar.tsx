@@ -3,37 +3,71 @@
 import { useEffect, useRef, useState } from "react";
 import { Link2, Code2, MoreHorizontal } from "lucide-react";
 
-const TEXT_COLORS = [
-  "#EAEAEA",
-  "#F28B82",
-  "#F3A65A",
-  "#F6D186",
-  "#8FD19E",
-  "#8EC5FC",
-  "#B9A3E3",
-  "#F49AC2",
+const TEXT_COLOR_OPTIONS: { name: string; value: string | null }[] = [
+  { name: "Default", value: null },
+  { name: "Gray", value: "#9B9A97" },
+  { name: "Brown", value: "#8B6A4F" },
+  { name: "Orange", value: "#D9730D" },
+  { name: "Yellow", value: "#DFAB01" },
+  { name: "Green", value: "#4DAB7A" },
+  { name: "Blue", value: "#4F9BD9" },
+  { name: "Purple", value: "#9A6DD7" },
+  { name: "Pink", value: "#E255A1" },
+  { name: "Red", value: "#E85252" },
 ];
+
+const BG_COLOR_OPTIONS: { name: string; value: string | null }[] = [
+  { name: "Default", value: null },
+  { name: "Gray", value: "#454340" },
+  { name: "Brown", value: "#452F23" },
+  { name: "Orange", value: "#5C3B23" },
+  { name: "Yellow", value: "#56452B" },
+  { name: "Green", value: "#22392F" },
+  { name: "Blue", value: "#1B3A4B" },
+  { name: "Purple", value: "#352947" },
+  { name: "Pink", value: "#472234" },
+  { name: "Red", value: "#4A2626" },
+];
+
+type RecentColor = {
+  kind: "text" | "background";
+  name: string;
+  value: string | null;
+};
+
+const RECENT_COLORS_KEY = "marginal-recent-colors";
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/**
- * Floating formatting toolbar. Shows whenever there's a non-collapsed
- * text selection inside an element marked data-rich-editable — that
- * covers paragraphs/headings/etc. (via Editable) and table cells, so it
- * works "irrespective of table" as requested.
- *
- * Formatting is applied with document.execCommand, which is deprecated
- * but is still the simplest way to manipulate rich text inside a
- * contentEditable without pulling in a full editor library. Blocks now
- * store their content as HTML (see Block.tsx's Editable/table cell
- * changes) so these marks persist.
- */
 export default function SelectionToolbar() {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [showColors, setShowColors] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [recentColors, setRecentColors] = useState<RecentColor[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(RECENT_COLORS_KEY);
+      if (raw) setRecentColors(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  const pushRecentColor = (entry: RecentColor) => {
+    setRecentColors((prev) => {
+      const next = [
+        entry,
+        ...prev.filter(
+          (c) => !(c.kind === entry.kind && c.value === entry.value),
+        ),
+      ].slice(0, 6);
+      try {
+        localStorage.setItem(RECENT_COLORS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkValue, setLinkValue] = useState("");
   const savedRangeRef = useRef<Range | null>(null);
@@ -47,10 +81,6 @@ export default function SelectionToolbar() {
 
   useEffect(() => {
     const onSelectionChange = () => {
-      // While the link input is focused, the browser reports the
-      // editor's selection as collapsed/empty — that's just focus
-      // having moved to the input, not the user deselecting text.
-      // Ignore it so the popover doesn't get torn down mid-typing.
       if (linkInputOpenRef.current) return;
 
       const sel = window.getSelection();
@@ -93,9 +123,7 @@ export default function SelectionToolbar() {
         setShowLinkInput(false);
       }
     };
-    // Capture phase so this runs before the toolbar's own onMouseDown
-    // preventDefault (attached via React's bubble-phase delegation),
-    // avoiding any ordering ambiguity between the two.
+
     document.addEventListener("mousedown", onOutsideMouseDown, true);
     return () =>
       document.removeEventListener("mousedown", onOutsideMouseDown, true);
@@ -104,7 +132,32 @@ export default function SelectionToolbar() {
   if (!rect) return null;
 
   const apply = (command: string, value?: string) => {
+    if (command === "foreColor" || command === "hiliteColor") {
+      document.execCommand("styleWithCSS", false, "true");
+    }
     document.execCommand(command, false, value);
+  };
+
+  const applyTextColor = (opt: { name: string; value: string | null }) => {
+    apply("foreColor", opt.value ?? "inherit");
+    pushRecentColor({ kind: "text", name: opt.name, value: opt.value });
+    setShowColors(false);
+  };
+
+  const applyBgColor = (opt: { name: string; value: string | null }) => {
+    apply("hiliteColor", opt.value ?? "transparent");
+    pushRecentColor({ kind: "background", name: opt.name, value: opt.value });
+    setShowColors(false);
+  };
+
+  const applyRecentColor = (entry: RecentColor) => {
+    if (entry.kind === "text") {
+      apply("foreColor", entry.value ?? "inherit");
+    } else {
+      apply("hiliteColor", entry.value ?? "transparent");
+    }
+    pushRecentColor(entry);
+    setShowColors(false);
   };
 
   const applyCode = () => {
@@ -121,9 +174,6 @@ export default function SelectionToolbar() {
   };
 
   const openLinkInput = () => {
-    // The selection must be captured now, before the <input> below
-    // steals focus — once that happens, window.getSelection() no
-    // longer reflects the text that was highlighted in the editor.
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
       savedRangeRef.current = sel.getRangeAt(0).cloneRange();
@@ -148,7 +198,6 @@ export default function SelectionToolbar() {
   };
 
   const applyEquation = () => {
-    // Lightweight visual placeholder, not real LaTeX/KaTeX rendering.
     const sel = window.getSelection();
     const text = sel?.toString() ?? "";
     if (!text) return;
@@ -183,20 +232,71 @@ export default function SelectionToolbar() {
           {showColors && (
             <div
               onMouseDown={(e) => e.preventDefault()}
-              className="absolute left-0 top-[calc(100%+6px)] z-10 grid grid-cols-4 gap-1.5 rounded-lg border border-black/40 bg-neutral-900 p-2 shadow-xl"
+              className="absolute left-0 top-[calc(100%+6px)] z-10 w-64 rounded-lg border border-black/40 bg-neutral-900 p-2.5 shadow-xl"
             >
-              {TEXT_COLORS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => {
-                    apply("foreColor", c);
-                    setShowColors(false);
-                  }}
-                  className="h-5 w-5 rounded-full border border-white/20"
-                  style={{ background: c }}
-                  aria-label={`Color ${c}`}
-                />
-              ))}
+              {recentColors.length > 0 && (
+                <div className="mb-2.5">
+                  <p className="mb-1.5 px-0.5 text-[11px] font-medium text-white/50">
+                    Recently used
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {recentColors.map((c) => (
+                      <button
+                        key={`${c.kind}-${c.value}`}
+                        onClick={() => applyRecentColor(c)}
+                        title={`${c.name} ${c.kind}`}
+                        className="h-6 w-6 rounded-md transition hover:ring-1 hover:ring-white/25"
+                        style={{
+                          background:
+                            c.kind === "background"
+                              ? (c.value ?? "transparent")
+                              : "#2a2a2a",
+                          color:
+                            c.kind === "text" ? (c.value ?? "#fff") : "#fff",
+                        }}
+                      >
+                        {c.kind === "text" && (
+                          <span className="text-[11px] font-semibold">A</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="mb-1.5 px-0.5 text-[11px] font-medium text-white/50">
+                Text color
+              </p>
+              <div className="mb-2.5 grid grid-cols-5 gap-1">
+                {TEXT_COLOR_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.name}
+                    onClick={() => applyTextColor(opt)}
+                    title={opt.name}
+                    className="flex h-7 items-center justify-center rounded-md bg-white/4 text-[13px] font-semibold transition hover:bg-white/10 hover:ring-1 hover:ring-white/25"
+                    style={{ color: opt.value ?? "#ffffff" }}
+                  >
+                    A
+                  </button>
+                ))}
+              </div>
+
+              <p className="mb-1.5 px-0.5 text-[11px] font-medium text-white/50">
+                Background color
+              </p>
+              <div className="grid grid-cols-5 gap-1">
+                {BG_COLOR_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.name}
+                    onClick={() => applyBgColor(opt)}
+                    title={opt.name}
+                    className={`h-7 rounded-md transition hover:ring-1 hover:ring-white/25 ${
+                      opt.value === null ? "outline outline-white/15" : ""
+                    }`}
+                    style={{ background: opt.value ?? "transparent" }}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>
