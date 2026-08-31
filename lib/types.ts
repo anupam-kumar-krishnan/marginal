@@ -47,6 +47,7 @@ export interface Block {
   content: string;
   checked?: boolean;
   imageSrc?: string;
+  imageWidth?: number;
   kanban?: KanbanData;
   toggleCollapsed?: boolean;
   toggleChildren?: ToggleChild[];

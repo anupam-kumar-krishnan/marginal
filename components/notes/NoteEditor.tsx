@@ -3,12 +3,14 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { nanoid } from "nanoid";
+import { Copy, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useNotesStore } from "@/store/useNotesStore";
 import type { Block as BlockT, BlockType, Page } from "@/lib/types";
 import Block from "./Block";
@@ -32,6 +34,7 @@ function isEmptyHtml(html: string) {
 }
 
 export interface NoteEditorHandle {
+  /** Focus the first block, creating an empty paragraph if there are none. */
   focusFirst: () => void;
 }
 
@@ -45,6 +48,28 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
       new Map(),
     );
     const blocks = page.blocks;
+
+    // --- Block hover controls: drag-to-reorder handle + "+" + menu ---
+    const [draggingId, setDraggingId] = useState<string | null>(null);
+    const [dragOverId, setDragOverId] = useState<string | null>(null);
+    const [dropPosition, setDropPosition] = useState<"before" | "after" | null>(
+      null,
+    );
+    const [hoveredHandleId, setHoveredHandleId] = useState<string | null>(null);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const menuRootRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+    useEffect(() => {
+      if (!openMenuId) return;
+      const handleClick = (e: MouseEvent) => {
+        const root = menuRootRefs.current.get(openMenuId);
+        if (root && !root.contains(e.target as Node)) {
+          setOpenMenuId(null);
+        }
+      };
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }, [openMenuId]);
 
     const registerRef = useCallback(
       (id: string, el: HTMLDivElement | HTMLTextAreaElement | null) => {
@@ -148,6 +173,8 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
         }
 
         if (type === "code") {
+          // Default new code blocks to auto-detect; the user can still
+          // pin a specific language from the LanguagePicker dropdown.
           extra.codeLanguage = "auto";
         }
 
@@ -316,11 +343,14 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
 
       if (currentBlock?.type === "code") {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          // Cmd/Ctrl+Enter exits the code block and starts a new one below.
           e.preventDefault();
           handleEnter(id);
           return;
         }
         if (e.key === "Enter") {
+          // Plain Enter: let the textarea insert a real newline natively.
+          // Falling through here (no preventDefault) is intentional.
           return;
         }
       }
@@ -404,6 +434,14 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
       commit(next);
     };
 
+    const handleImageResize = (id: string, widthPercent: number) => {
+      const idx = blocks.findIndex((b) => b.id === id);
+      if (idx === -1) return;
+      const next = blocks.slice();
+      next[idx] = { ...next[idx], imageWidth: widthPercent };
+      commit(next);
+    };
+
     const handleKanbanChange = (id: string, kanban: BlockT["kanban"]) => {
       const idx = blocks.findIndex((b) => b.id === id);
       if (idx === -1) return;
@@ -443,6 +481,81 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
       if (pageId) setActivePage(pageId);
     };
 
+    const resetDragState = () => {
+      setDraggingId(null);
+      setDragOverId(null);
+      setDropPosition(null);
+    };
+
+    const handleDragStart = (e: React.DragEvent, id: string) => {
+      setDraggingId(id);
+      e.dataTransfer.effectAllowed = "move";
+      // Firefox requires data to be set for drag to initiate.
+      e.dataTransfer.setData("text/plain", id);
+    };
+
+    const handleDragOver = (e: React.DragEvent, id: string) => {
+      if (!draggingId || draggingId === id) return;
+      e.preventDefault();
+      const rect = e.currentTarget.getBoundingClientRect();
+      const isAfter = e.clientY - rect.top > rect.height / 2;
+      setDragOverId(id);
+      setDropPosition(isAfter ? "after" : "before");
+    };
+
+    const handleDrop = (e: React.DragEvent, id: string) => {
+      e.preventDefault();
+      const fromId = draggingId;
+      const position = dropPosition;
+      resetDragState();
+      if (!fromId || fromId === id) return;
+
+      const fromIdx = blocks.findIndex((b) => b.id === fromId);
+      if (fromIdx === -1) return;
+
+      const next = blocks.slice();
+      const [moved] = next.splice(fromIdx, 1);
+      let insertAt = next.findIndex((b) => b.id === id);
+      if (insertAt === -1) insertAt = next.length;
+      if (position === "after") insertAt += 1;
+      next.splice(insertAt, 0, moved);
+      commit(next);
+    };
+
+    const insertBlockAfter = (id: string) => {
+      const idx = blocks.findIndex((b) => b.id === id);
+      if (idx === -1) return;
+      const newBlock: BlockT = {
+        id: nanoid(8),
+        type: "paragraph",
+        content: "",
+      };
+      const next = blocks.slice();
+      next.splice(idx + 1, 0, newBlock);
+      commit(next);
+      focusBlock(newBlock.id, "start");
+    };
+
+    const duplicateBlock = (id: string) => {
+      const idx = blocks.findIndex((b) => b.id === id);
+      if (idx === -1) return;
+      const copy: BlockT = { ...blocks[idx], id: nanoid(8) };
+      const next = blocks.slice();
+      next.splice(idx + 1, 0, copy);
+      commit(next);
+      setOpenMenuId(null);
+    };
+
+    const deleteBlock = (id: string) => {
+      const remaining = blocks.filter((b) => b.id !== id);
+      commit(
+        remaining.length
+          ? remaining
+          : [{ id: nanoid(8), type: "paragraph", content: "" }],
+      );
+      setOpenMenuId(null);
+    };
+
     const appendTrailingBlock = () => {
       const last = blocks[blocks.length - 1];
       if (last && last.type === "paragraph" && last.content === "") {
@@ -475,51 +588,143 @@ const NoteEditor = forwardRef<NoteEditorHandle, { page: Page }>(
     return (
       <div className="relative">
         <SelectionToolbar />
-        {blocks.map((block, index) => (
-          <div
-            key={block.id}
-            className={`group relative py-0.75 ${
-              block.type === "kanban" ? "w-full" : ""
-            }`}
-            style={
-              block.type === "kanban"
-                ? undefined
-                : {
-                    maxWidth: page.fullWidth ? "100%" : "48rem",
-                    marginLeft: page.fullWidth ? undefined : "auto",
-                    marginRight: page.fullWidth ? undefined : "auto",
-                  }
-            }
-          >
-            <Block
-              block={block}
-              index={index}
-              numberIndex={numberMap[block.id]}
-              registerRef={registerRef}
-              onInput={handleInput}
-              onKeyDown={handleKeyDown}
-              onToggleCheck={handleToggleCheck}
-              onImageUpload={handleImageUpload}
-              onRemoveImage={handleRemoveImage}
-              onFocusBlock={() => {}}
-              onKanbanChange={handleKanbanChange}
-              onToggleChange={handleToggleChange}
-              onTableChange={handleTableChange}
-              onOpenPage={handleOpenPage}
-              onCodeLanguageChange={handleCodeLanguageChange}
-            />
-            {slash && slash.blockId === block.id && (
-              <SlashMenu
-                query={slash.query}
-                selectedIndex={slash.selectedIndex}
-                onSelect={(type) => selectCommand(block.id, type)}
-                onHover={(i) =>
-                  setSlash((s) => (s ? { ...s, selectedIndex: i } : s))
-                }
+        {blocks.map((block, index) => {
+          const isDragging = draggingId === block.id;
+          const isDragOver = dragOverId === block.id && !isDragging;
+
+          return (
+            <div
+              key={block.id}
+              onDragOver={(e) => handleDragOver(e, block.id)}
+              onDrop={(e) => handleDrop(e, block.id)}
+              onDragEnd={resetDragState}
+              className={`group relative py-0.75 transition-opacity ${
+                block.type === "kanban" ? "w-full" : ""
+              } ${isDragging ? "opacity-40" : ""}`}
+              style={
+                block.type === "kanban"
+                  ? undefined
+                  : {
+                      maxWidth: page.fullWidth ? "100%" : "48rem",
+                      marginLeft: page.fullWidth ? undefined : "auto",
+                      marginRight: page.fullWidth ? undefined : "auto",
+                    }
+              }
+            >
+              {isDragOver && dropPosition === "before" && (
+                <div className="pointer-events-none absolute inset-x-0 -top-px h-0.5 rounded-full bg-moss" />
+              )}
+              {isDragOver && dropPosition === "after" && (
+                <div className="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-moss" />
+              )}
+
+              {/* Hover controls: add block below + drag handle / menu,
+                  positioned in the gutter to the left of the content —
+                  same placement Notion uses. Uses the same -left-16
+                  offset in both narrow and full-width modes; the
+                  content wrapper's paddingLeft (set in notes.tsx for
+                  full-width pages) is sized to give this gutter enough
+                  room to clear the sidebar's resize handle / stripe
+                  border without also crowding the text. Don't shrink
+                  this offset to "fix" overlap with the sidebar — that
+                  just pushes the controls into the text instead;
+                  adjust the padding in notes.tsx. */}
+              <div className="absolute -left-16 top-0.5 z-10 flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+                <button
+                  type="button"
+                  onClick={() => insertBlockAfter(block.id)}
+                  className="flex h-6 w-6 items-center justify-center rounded text-ink-soft transition hover:bg-paper-soft hover:text-ink"
+                  aria-label="Add block below"
+                >
+                  <Plus size={15} />
+                </button>
+
+                <div
+                  className="relative"
+                  ref={(el) => {
+                    if (el) menuRootRefs.current.set(block.id, el);
+                    else menuRootRefs.current.delete(block.id);
+                  }}
+                >
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, block.id)}
+                    onClick={() =>
+                      setOpenMenuId((cur) =>
+                        cur === block.id ? null : block.id,
+                      )
+                    }
+                    onMouseEnter={() => setHoveredHandleId(block.id)}
+                    onMouseLeave={() => setHoveredHandleId(null)}
+                    className="flex h-6 w-6 cursor-grab items-center justify-center rounded text-ink-soft transition hover:bg-paper-soft hover:text-ink active:cursor-grabbing"
+                    aria-label="Drag to move, click to open menu"
+                  >
+                    <GripVertical size={15} />
+                  </button>
+
+                  {hoveredHandleId === block.id &&
+                    openMenuId !== block.id &&
+                    !draggingId && (
+                      <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-2.5 py-1.5 text-[11px] leading-tight text-white shadow-lg">
+                        Drag to move
+                        <br />
+                        Click to open menu
+                      </div>
+                    )}
+
+                  {openMenuId === block.id && (
+                    <div className="absolute left-0 top-full z-30 mt-1 w-36 overflow-hidden rounded-lg border border-line bg-paper py-1 shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => duplicateBlock(block.id)}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink-soft transition hover:bg-paper-soft hover:text-ink"
+                      >
+                        <Copy size={13} /> Duplicate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteBlock(block.id)}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-red-500 transition hover:bg-red-500/10"
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Block
+                block={block}
+                index={index}
+                numberIndex={numberMap[block.id]}
+                registerRef={registerRef}
+                onInput={handleInput}
+                onKeyDown={handleKeyDown}
+                onToggleCheck={handleToggleCheck}
+                onImageUpload={handleImageUpload}
+                onRemoveImage={handleRemoveImage}
+                onImageResize={handleImageResize}
+                onFocusBlock={() => {}}
+                onKanbanChange={handleKanbanChange}
+                onToggleChange={handleToggleChange}
+                onTableChange={handleTableChange}
+                onOpenPage={handleOpenPage}
+                onCodeLanguageChange={handleCodeLanguageChange}
               />
-            )}
-          </div>
-        ))}
+              {slash && slash.blockId === block.id && (
+                <SlashMenu
+                  query={slash.query}
+                  selectedIndex={slash.selectedIndex}
+                  onSelect={(type) => selectCommand(block.id, type)}
+                  onHover={(i) =>
+                    setSlash((s) => (s ? { ...s, selectedIndex: i } : s))
+                  }
+                />
+              )}
+            </div>
+          );
+        })}
         <div className="h-24 cursor-text" onClick={appendTrailingBlock} />
       </div>
     );

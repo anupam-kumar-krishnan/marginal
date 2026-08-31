@@ -87,7 +87,7 @@ body {
   outline: none;
 }
 
-[contenteditable][data-placeholder]:empty::before {
+[contenteditable][data-placeholder]:empty:focus::before {
   content: attr(data-placeholder);
   color: var(--ink-soft);
   opacity: 0.55;

@@ -28,6 +28,7 @@ interface BlockProps {
   onToggleCheck: (id: string) => void;
   onImageUpload: (id: string, file: File) => void;
   onRemoveImage: (id: string) => void;
+  onImageResize: (id: string, widthPercent: number) => void;
   onFocusBlock: (id: string) => void;
   onKanbanChange: (id: string, data: KanbanData) => void;
   onToggleChange: (
@@ -92,16 +93,25 @@ const CODE_LANGUAGES = [
   { value: "java", label: "Java" },
 ];
 
+/**
+ * Lightweight heuristic language detection so code blocks can guess
+ * their language as the user types, without pulling in a full
+ * detection library (e.g. highlight.js's highlightAuto). Checked in
+ * order from most-specific/unambiguous signal to least.
+ */
 function detectLanguage(code: string): string {
   const src = code ?? "";
   const trimmed = src.trim();
   if (!trimmed) return "plaintext";
 
+  // JSON — cheap to confirm definitively by parsing.
   if (trimmed[0] === "{" || trimmed[0] === "[") {
     try {
       JSON.parse(trimmed);
       return "json";
-    } catch {}
+    } catch {
+      // fall through — could still be JS/TS object literal etc.
+    }
   }
 
   const hasJsxTag =
@@ -237,6 +247,18 @@ function Editable({
   );
 }
 
+/**
+ * Code block with live Prism syntax highlighting.
+ *
+ * Implementation note: contentEditable can't render syntax-highlighted
+ * markup and stay reliably editable at the same time (caret placement
+ * and undo/redo break easily once you swap innerHTML on every
+ * keystroke). Instead we stack two layers of identical size/typography:
+ *   1. A visible, non-interactive SyntaxHighlighter showing colored code.
+ *   2. An invisible (text made transparent) contentEditable on top that
+ *      holds the real caret/selection and receives all input.
+ * The two layers are kept in sync on content change and on scroll.
+ */
 function LanguagePicker({
   value,
   detectedLanguage,
@@ -342,7 +364,9 @@ function CodeBlock({
   onLanguageChange: (id: string, language: string) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
+  // "auto" (the default for new code blocks) means we detect the
+  // language live from the block's content on every render; picking
+  // a specific language from the dropdown pins it and stops detection.
   const selectedLanguage = block.codeLanguage || "auto";
   const isAuto = selectedLanguage === "auto";
   const detected = isAuto ? detectLanguage(block.content) : selectedLanguage;
@@ -358,6 +382,7 @@ function CodeBlock({
 
   useEffect(() => {
     updateHeight();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [block.content]);
 
   return (
@@ -374,6 +399,7 @@ function CodeBlock({
         className="relative overflow-hidden rounded-b-lg"
         style={{ height: height ? `${height}px` : undefined }}
       >
+        {/* Highlighted layer — visual only, not interactive */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-4 py-3 font-mono text-sm leading-6"
@@ -397,6 +423,9 @@ function CodeBlock({
           </SyntaxHighlighter>
         </div>
 
+        {/* Editable layer — a real textarea, so Enter/newlines, caret
+            placement, and selection are all native browser behavior
+            instead of fragile contentEditable + execCommand hacks. */}
         <textarea
           ref={(el) => {
             textareaRef.current = el;
@@ -416,6 +445,11 @@ function CodeBlock({
   );
 }
 
+/**
+ * One editable line inside a toggle's collapsible body. Deliberately
+ * simple (no slash menu, no block-type switching) — this is a plain
+ * text line, not a full nested Block.
+ */
 function ToggleChildLine({
   child,
   onChange,
@@ -644,6 +678,7 @@ export default function Block({
   onToggleCheck,
   onImageUpload,
   onRemoveImage,
+  onImageResize,
   onFocusBlock,
   onKanbanChange,
   onToggleChange,
@@ -652,6 +687,7 @@ export default function Block({
   onCodeLanguageChange,
 }: BlockProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
 
   if (block.type === "divider") {
     return <hr className="my-4 border-line" />;
@@ -811,20 +847,75 @@ export default function Block({
         </div>
       );
     }
+    const widthPercent = block.imageWidth ?? 100;
+    const MIN_WIDTH_PERCENT = 25;
+
+    const startResize = (e: React.PointerEvent, edge: "left" | "right") => {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = imageContainerRef.current;
+      // Resize relative to the block column's width, not the (already
+      // shrunk) image itself, so percentages stay stable across drags.
+      const parent = container?.parentElement;
+      if (!parent) return;
+
+      const parentWidth = parent.getBoundingClientRect().width;
+      const startX = e.clientX;
+      const startWidthPx = (widthPercent / 100) * parentWidth;
+
+      const onPointerMove = (ev: PointerEvent) => {
+        const delta =
+          edge === "right" ? ev.clientX - startX : startX - ev.clientX;
+        const rawWidthPx = startWidthPx + delta * 2; // drag from a side moves both edges, like Notion
+        const clampedPx = Math.min(
+          parentWidth,
+          Math.max((MIN_WIDTH_PERCENT / 100) * parentWidth, rawWidthPx),
+        );
+        const nextPercent = Math.round((clampedPx / parentWidth) * 100);
+        onImageResize(block.id, nextPercent);
+      };
+
+      const onPointerUp = () => {
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+      };
+
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+    };
+
     return (
-      <div className="group relative overflow-hidden rounded-xl">
-        <img
-          src={block.imageSrc}
-          alt=""
-          className="max-h-105 w-full rounded-xl object-cover"
-        />
-        <button
-          onClick={() => onRemoveImage(block.id)}
-          className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white opacity-0 backdrop-blur transition group-hover:opacity-100"
-          aria-label="Remove image"
-        >
-          <X size={14} />
-        </button>
+      <div
+        ref={imageContainerRef}
+        className="group/image relative mx-auto"
+        style={{ width: `${widthPercent}%` }}
+      >
+        <div className="relative overflow-hidden rounded-xl">
+          <img
+            src={block.imageSrc}
+            alt=""
+            className="max-h-105 w-full rounded-xl object-cover"
+            draggable={false}
+          />
+          <button
+            onClick={() => onRemoveImage(block.id)}
+            className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white opacity-0 backdrop-blur transition group-hover/image:opacity-100"
+            aria-label="Remove image"
+          >
+            <X size={14} />
+          </button>
+
+          {/* Notion-style drag handles: thin pill on each edge, only
+              visible while hovering the image. */}
+          <div
+            onPointerDown={(e) => startResize(e, "left")}
+            className="absolute left-1.5 top-1/2 h-10 w-1.5 -translate-y-1/2 cursor-ew-resize rounded-full bg-white/0 opacity-0 transition group-hover/image:bg-white/70 group-hover/image:opacity-100"
+          />
+          <div
+            onPointerDown={(e) => startResize(e, "right")}
+            className="absolute right-1.5 top-1/2 h-10 w-1.5 -translate-y-1/2 cursor-ew-resize rounded-full bg-white/0 opacity-0 transition group-hover/image:bg-white/70 group-hover/image:opacity-100"
+          />
+        </div>
       </div>
     );
   }

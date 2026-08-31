@@ -1117,6 +1117,12 @@ export default function CoverHeader({
           maxWidth: page.fullWidth ? "100%" : "48rem",
           marginLeft: page.fullWidth ? undefined : "auto",
           marginRight: page.fullWidth ? undefined : "auto",
+          // Keep this in sync with the paddingLeft used for the block
+          // content wrapper in notes.tsx — both need the same 6rem
+          // inset in full-width mode so the icon/title line up with
+          // the text below instead of sitting further left at the
+          // smaller px-6/md:px-10 default.
+          paddingLeft: page.fullWidth ? "6rem" : undefined,
         }}
       >
         <div
