@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Tailwind v4: enable class-based dark mode (toggled via .dark on <html> or <body>) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --paper: #f4f1e8;
   --paper-soft: #eeeadd;
@@ -27,6 +30,10 @@
 }
 
 @theme inline {
+  --font-heading: var(--font-bricolage), "Segoe UI", -apple-system, sans-serif;
+}
+
+@theme inline {
   --color-paper: var(--paper);
   --color-paper-soft: var(--paper-soft);
   --color-surface: var(--surface);
@@ -37,6 +44,7 @@
   --color-moss-soft: var(--moss-soft);
   --color-amber: var(--amber);
   --color-amber-soft: var(--amber-soft);
+
   --font-display:
     "Segoe UI", var(--font-inter), -apple-system, BlinkMacSystemFont, Roboto,
     "Helvetica Neue", Arial, sans-serif;
@@ -45,6 +53,80 @@
     "Helvetica Neue", Arial, sans-serif;
   --font-mono:
     ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+/* ---------- wine / cream / ink scales used by the landing page components ---------- */
+@theme {
+  --color-cream-50: #fefdfb;
+  --color-cream-100: #faf7ee;
+  --color-cream-200: #f3eee0;
+  --color-cream-300: #e8e0c9;
+  --color-cream-400: #d6c9a8;
+  --color-cream-500: #c2b184;
+  --color-cream-600: #a3936a;
+  --color-cream-700: #7d7052;
+  --color-cream-800: #574f3a;
+  --color-cream-900: #363023;
+  --color-cream-950: #1e1a13;
+
+  --color-ink-50: #f7f6f3;
+  --color-ink-100: #ece9e2;
+  --color-ink-200: #d8d2c4;
+  --color-ink-300: #b3ab97;
+  --color-ink-400: #8c8371;
+  --color-ink-500: #6b6455;
+  --color-ink-600: #504a3f;
+  --color-ink-700: #3a352c;
+  --color-ink-800: #262319;
+  --color-ink-900: #1a1810;
+  --color-ink-950: #100e09;
+
+  /* mapped to moss green to match the design screenshot */
+  --color-wine-50: #f4f8f5;
+  --color-wine-100: #e3ede6;
+  --color-wine-200: #c5dbcb;
+  --color-wine-300: #9ec2a9;
+  --color-wine-400: #6fa17f;
+  --color-wine-500: #4d8264;
+  --color-wine-600: #3a6b4f;
+  --color-wine-700: #2f5941;
+  --color-wine-800: #274935;
+  --color-wine-900: #213d2c;
+  --color-wine-950: #10211a;
+
+  --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+
+  /* powers the animate-blink utility used in Hero.tsx */
+  --animate-blink: blink 1.05s steps(1) infinite;
+}
+
+@keyframes blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@layer components {
+  .text-gradient {
+    @apply bg-gradient-to-r from-wine-600 via-wine-800 to-wine-600 bg-clip-text text-transparent;
+  }
+
+  .dark .text-gradient {
+    @apply from-wine-400 via-wine-300 to-wine-400;
+  }
+
+  .glass {
+    @apply bg-cream-50/80 backdrop-blur-xl border border-cream-300/60;
+  }
+
+  .dark .glass {
+    @apply bg-ink-800/80 border-ink-700/60;
+  }
 }
 
 * {
