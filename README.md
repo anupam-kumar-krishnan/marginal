@@ -1,6 +1,6 @@
 # Marginal
 
-![Banner](/public/banner.png)
+![Banner](/public/marginal-banner.png)
 
 A fast, local-first, Notion-style note-taking app built with Next.js, Tailwind CSS, Motion, and Zustand. No sign-in, no server — every page is saved to your browser's `localStorage`.
 
